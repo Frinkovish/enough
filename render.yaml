@@ -1,0 +1,47 @@
+services:
+  - type: web
+    name: enough-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./dev.db
+      - key: SUPABASE_URL
+        value: https://zpwddyhyitvjrgonfyvw.supabase.co
+      - key: CORS_ORIGINS
+        value: '["https://enough-frontend.onrender.com"]'
+      - key: SQL_ECHO
+        value: 'false'
+      # Secrets — set these manually in the Render dashboard after the
+      # first deploy. Never put real values here; this file is committed.
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+
+  - type: web
+    name: enough-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: |
+      git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter
+      export PATH="$PWD/_flutter/bin:$PATH"
+      flutter config --enable-web --no-analytics
+      flutter pub get
+      printf 'SUPABASE_URL=%s\nSUPABASE_ANON_KEY=%s\nDEV_BYPASS_AUTH=false\nBACKEND_BASE_URL=%s\n' \
+        "$SUPABASE_URL" "$SUPABASE_ANON_KEY" "$BACKEND_BASE_URL" > .env
+      flutter build web --release
+    staticPublishPath: build/web
+    envVars:
+      - key: SUPABASE_URL
+        value: https://zpwddyhyitvjrgonfyvw.supabase.co
+      # Supabase's "publishable" anon key is meant to be embedded in
+      # client apps — it's not a secret; Row Level Security is what
+      # actually protects your data, not hiding this value.
+      - key: SUPABASE_ANON_KEY
+        value: sb_publishable_LV-Jk2idWA1IgTB8iz46Bw_VY1kMx0R
+      - key: BACKEND_BASE_URL
+        value: https://enough-backend.onrender.com
