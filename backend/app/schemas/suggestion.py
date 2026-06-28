@@ -1,0 +1,45 @@
+from pydantic import BaseModel, Field
+
+from app.domain.craving_trigger import CravingTrigger
+from app.domain.goal_context import GoalContext
+from app.domain.task_suggestion import TaskCategory, TaskSuggestion
+
+
+class GoalContextIn(BaseModel):
+    id: str
+    title: str
+    target: int
+    unit: str
+    progress: int
+
+    def to_domain(self) -> GoalContext:
+        return GoalContext(
+            id=self.id, title=self.title, target=self.target, unit=self.unit, progress=self.progress
+        )
+
+
+class SuggestionRequest(BaseModel):
+    trigger: CravingTrigger
+    goals: list[GoalContextIn] = []
+    local_hour: int = Field(ge=0, le=23)
+    last_suggestion_title: str | None = None
+
+
+class SuggestionRead(BaseModel):
+    id: str
+    title: str
+    description: str
+    category: TaskCategory
+    goal_id: str | None = None
+    goal_progress_amount: int = 0
+
+    @classmethod
+    def from_domain(cls, suggestion: TaskSuggestion) -> "SuggestionRead":
+        return cls(
+            id=suggestion.id,
+            title=suggestion.title,
+            description=suggestion.description,
+            category=suggestion.category,
+            goal_id=suggestion.goal_id,
+            goal_progress_amount=suggestion.goal_progress_amount,
+        )

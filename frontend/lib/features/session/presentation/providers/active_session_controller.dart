@@ -1,0 +1,199 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../../core/config/env.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../goals/domain/monthly_goal.dart';
+import '../../../goals/presentation/providers/goal_providers.dart';
+import '../../../stats/presentation/providers/stats_providers.dart';
+import '../../domain/craving_session.dart';
+import '../../domain/craving_trigger.dart';
+import '../../domain/task_suggestion.dart';
+import 'session_providers.dart';
+
+const _devBypassUserId = 'dev-bypass-user';
+
+class ActiveSessionState {
+  const ActiveSessionState({
+    required this.session,
+    required this.remainingSeconds,
+    this.isRefreshingSuggestion = false,
+  });
+
+  final CravingSession session;
+  final int remainingSeconds;
+
+  /// True while a "give me a different suggestion" request is in flight.
+  final bool isRefreshingSuggestion;
+
+  bool get isFinished => remainingSeconds <= 0;
+
+  double get progress {
+    final total = session.durationSeconds;
+    if (total == 0) return 1;
+    return (1 - (remainingSeconds / total)).clamp(0, 1);
+  }
+
+  ActiveSessionState copyWith({
+    int? remainingSeconds,
+    CravingSession? session,
+    bool? isRefreshingSuggestion,
+  }) {
+    return ActiveSessionState(
+      session: session ?? this.session,
+      remainingSeconds: remainingSeconds ?? this.remainingSeconds,
+      isRefreshingSuggestion: isRefreshingSuggestion ?? this.isRefreshingSuggestion,
+    );
+  }
+}
+
+/// Owns the in-progress craving session: picks a task suggestion (one
+/// that advances an active goal, if any, otherwise a generic one),
+/// runs the 20-minute countdown, and persists the outcome. The user
+/// can always end early via [endEarly] — autonomy beats a forced wait.
+class ActiveSessionController extends Notifier<ActiveSessionState?> {
+  static const sessionDurationSeconds = 20 * 60;
+
+  Timer? _ticker;
+  final _uuid = const Uuid();
+
+  @override
+  ActiveSessionState? build() {
+    ref.onDispose(() => _ticker?.cancel());
+    return null;
+  }
+
+  Future<void> startSession(CravingTrigger trigger) async {
+    final userId = ref.read(currentUserProvider)?.id ?? (Env.devBypassAuth ? _devBypassUserId : null);
+    if (userId == null) return;
+
+    final activeGoals = await ref.read(goalRepositoryProvider).getActiveGoals();
+    final picked = await _pickTask(trigger, activeGoals);
+
+    final session = CravingSession(
+      id: _uuid.v4(),
+      userId: userId,
+      startedAt: DateTime.now(),
+      durationSeconds: sessionDurationSeconds,
+      suggestedTask: picked.task,
+      trigger: trigger,
+      goalId: picked.goalId,
+    );
+
+    state = ActiveSessionState(session: session, remainingSeconds: sessionDurationSeconds);
+    unawaited(ref.read(sessionRepositoryProvider).createSession(session));
+    _startTicker();
+  }
+
+  /// Re-picks a suggestion for the in-progress session without touching
+  /// the timer — used when the user doesn't like the current suggestion.
+  Future<void> refreshSuggestion() async {
+    final session = state?.session;
+    if (session == null || (state?.isRefreshingSuggestion ?? false)) return;
+
+    state = state?.copyWith(isRefreshingSuggestion: true);
+    try {
+      final activeGoals = await ref.read(goalRepositoryProvider).getActiveGoals();
+      final picked = await _pickTask(session.trigger, activeGoals);
+      final updatedSession = session.withSuggestion(picked.task, picked.goalId);
+
+      final latest = state;
+      if (latest == null) return; // session ended while the request was in flight
+      state = latest.copyWith(session: updatedSession, isRefreshingSuggestion: false);
+
+      unawaited(ref.read(sessionRepositoryProvider).updateSuggestedTask(
+            sessionId: updatedSession.id,
+            suggestedTaskId: picked.task.id,
+            goalId: picked.goalId,
+          ));
+    } catch (_) {
+      state = state?.copyWith(isRefreshingSuggestion: false);
+    }
+  }
+
+  /// All active goals are sent so the AI can pick whichever one (if any)
+  /// genuinely fits this moment, rather than always defaulting to the
+  /// same one. Falls back to local logic on any AI/network failure.
+  Future<({TaskSuggestion task, String? goalId})> _pickTask(
+    CravingTrigger trigger,
+    List<MonthlyGoal> activeGoals,
+  ) async {
+    try {
+      final task = await ref.read(suggestionRepositoryProvider).getSuggestion(
+            trigger: trigger,
+            goals: activeGoals,
+          );
+      return (task: task, goalId: task.goalId);
+    } catch (_) {
+      final fallbackGoal = activeGoals.isEmpty ? null : activeGoals.first;
+      final task = fallbackGoal == null
+          ? ref.read(taskSuggestionRepositoryProvider).getRandomSuggestion()
+          : _taskForGoal(fallbackGoal);
+      return (task: task, goalId: fallbackGoal?.id);
+    }
+  }
+
+  /// Fallback when the AI suggestion call fails: one unit of the goal's
+  /// own target, e.g. a "Run 5 km" goal suggests "Run 1 km".
+  TaskSuggestion _taskForGoal(MonthlyGoal goal) {
+    return TaskSuggestion(
+      id: 'goal:${goal.id}',
+      title: '${goal.title} 1 ${goal.unit}',
+      description:
+          'Towards your goal: ${goal.title} ${goal.target} ${goal.unit} '
+          '(${goal.progress}/${goal.target} so far)',
+      category: TaskCategory.productivity,
+      goalId: goal.id,
+      goalProgressAmount: 1,
+    );
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      final current = state;
+      if (current == null) return;
+      if (current.remainingSeconds <= 1) {
+        _ticker?.cancel();
+        state = current.copyWith(remainingSeconds: 0);
+      } else {
+        state = current.copyWith(remainingSeconds: current.remainingSeconds - 1);
+      }
+    });
+  }
+
+  void endEarly() {
+    _ticker?.cancel();
+    final current = state;
+    if (current == null) return;
+    state = current.copyWith(remainingSeconds: 0);
+  }
+
+  /// [taskCompleted] is asked independently of [outcome]: resisting a
+  /// craving and doing the suggested task are different signals, so goal
+  /// progress is credited based on the task, not on whether they smoked.
+  Future<void> recordOutcome(SessionOutcome outcome, {required bool taskCompleted}) async {
+    final current = state;
+    if (current == null) return;
+    await ref.read(sessionRepositoryProvider).completeSession(
+          sessionId: current.session.id,
+          outcome: outcome,
+          taskCompleted: taskCompleted,
+        );
+
+    final goalId = current.session.goalId;
+    if (taskCompleted && goalId != null) {
+      final amount = current.session.suggestedTask.goalProgressAmount;
+      await ref.read(goalRepositoryProvider).incrementProgress(goalId, amount: amount > 0 ? amount : 1);
+    }
+
+    state = null;
+    ref.invalidate(cravingStatsProvider);
+    ref.invalidate(activeGoalsProvider);
+  }
+}
+
+final activeSessionControllerProvider =
+    NotifierProvider<ActiveSessionController, ActiveSessionState?>(ActiveSessionController.new);
