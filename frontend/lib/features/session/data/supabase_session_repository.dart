@@ -39,4 +39,11 @@ class SupabaseSessionRepository implements SessionRepository {
       'goal_id': goalId,
     }).eq('id', sessionId);
   }
+
+  @override
+  Future<void> resetAllSessions() async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) return;
+    await _client.from(_table).delete().eq('user_id', userId);
+  }
 }

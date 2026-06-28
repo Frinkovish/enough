@@ -21,4 +21,7 @@ class LocalNoopSessionRepository implements SessionRepository {
     required String suggestedTaskId,
     required String? goalId,
   }) async {}
+
+  @override
+  Future<void> resetAllSessions() async {}
 }

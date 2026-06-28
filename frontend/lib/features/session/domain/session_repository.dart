@@ -16,4 +16,7 @@ abstract class SessionRepository {
     required String suggestedTaskId,
     required String? goalId,
   });
+
+  /// Deletes all of the current user's craving session history.
+  Future<void> resetAllSessions();
 }

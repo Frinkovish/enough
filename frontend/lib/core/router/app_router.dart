@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/session/presentation/screens/session_outcome_screen.dart';
 import '../../features/session/presentation/screens/session_screen.dart';
 import '../../features/stats/presentation/screens/insights_screen.dart';
@@ -20,6 +21,7 @@ class AppRoutes {
   static const session = '/session';
   static const sessionOutcome = '/session/outcome';
   static const insights = '/insights';
+  static const profile = '/profile';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -58,6 +60,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.insights,
         builder: (context, state) => const InsightsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
       ),
     ],
   );
