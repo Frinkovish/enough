@@ -8,6 +8,7 @@ from app.domain.craving_trigger import CravingTrigger
 from app.domain.goal_context import GoalContext
 from app.domain.suggestion_generator import AISuggestionUnavailableError, SuggestionGenerator
 from app.domain.task_suggestion import TaskCategory, TaskSuggestion
+from app.integrations.azure_responses import extract_output_text, is_reasoning_model
 
 logger = logging.getLogger("app.suggestions")
 
@@ -87,22 +88,30 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                 # Azure's Responses API: deployment/model goes in the body
                 # (not the URL), and the reply is nested under
                 # output[0].content[0].text rather than choices[0].message.
+                body = {
+                    "model": self._model,
+                    "input": [
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "max_output_tokens": 150,
+                    "text": {"format": {"type": "json_object"}},
+                }
+                if is_reasoning_model(self._model):
+                    # Reasoning models spend part of max_output_tokens on
+                    # hidden reasoning before producing visible text. Even
+                    # at minimal effort that spend varies call to call, so
+                    # give extra headroom on top of the visible-answer
+                    # budget above rather than risk truncating the answer.
+                    body["reasoning"] = {"effort": "minimal"}
+                    body["max_output_tokens"] += 150
                 response = await client.post(
                     self._endpoint,
                     headers={"api-key": self._api_key, "Content-Type": "application/json"},
-                    json={
-                        "model": self._model,
-                        "input": [
-                            {"role": "system", "content": _SYSTEM_PROMPT},
-                            {"role": "user", "content": user_prompt},
-                        ],
-                        "max_output_tokens": 150,
-                        "temperature": 0.8,
-                        "text": {"format": {"type": "json_object"}},
-                    },
+                    json=body,
                 )
                 response.raise_for_status()
-                content = response.json()["output"][0]["content"][0]["text"]
+                content = extract_output_text(response.json())
                 parsed = json.loads(content)
                 title = str(parsed["title"]).strip()
                 description = str(parsed["description"]).strip()

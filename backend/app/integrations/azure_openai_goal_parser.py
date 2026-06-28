@@ -4,6 +4,7 @@ import httpx
 
 from app.domain.goal_parser import GoalParseUnavailableError, GoalParser
 from app.domain.parsed_goal import ParsedGoal
+from app.integrations.azure_responses import extract_output_text, is_reasoning_model
 
 _SYSTEM_PROMPT = (
     "You turn a short free-text monthly goal description into a structured goal. Pick a "
@@ -37,22 +38,25 @@ class AzureOpenAIGoalParser(GoalParser):
                 # Azure's Responses API: deployment/model goes in the body
                 # (not the URL), and the reply is nested under
                 # output[0].content[0].text rather than choices[0].message.
+                body = {
+                    "model": self._model,
+                    "input": [
+                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "user", "content": description},
+                    ],
+                    "max_output_tokens": 100,
+                    "text": {"format": {"type": "json_object"}},
+                }
+                if is_reasoning_model(self._model):
+                    body["reasoning"] = {"effort": "minimal"}
+                    body["max_output_tokens"] += 150
                 response = await client.post(
                     self._endpoint,
                     headers={"api-key": self._api_key, "Content-Type": "application/json"},
-                    json={
-                        "model": self._model,
-                        "input": [
-                            {"role": "system", "content": _SYSTEM_PROMPT},
-                            {"role": "user", "content": description},
-                        ],
-                        "max_output_tokens": 100,
-                        "temperature": 0.3,
-                        "text": {"format": {"type": "json_object"}},
-                    },
+                    json=body,
                 )
                 response.raise_for_status()
-                content = response.json()["output"][0]["content"][0]["text"]
+                content = extract_output_text(response.json())
                 parsed = json.loads(content)
                 title = str(parsed["title"]).strip()
                 unit = str(parsed["unit"]).strip()
