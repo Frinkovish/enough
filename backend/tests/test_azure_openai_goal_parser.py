@@ -7,8 +7,8 @@ from app.domain.goal_parser import GoalParseUnavailableError
 from app.integrations.azure_openai_goal_parser import AzureOpenAIGoalParser
 
 
-def _chat_completion_payload(content: str) -> dict:
-    return {"choices": [{"message": {"content": content}}]}
+def _responses_payload(content: str) -> dict:
+    return {"output": [{"type": "message", "content": [{"type": "output_text", "text": content}]}]}
 
 
 def _transport_returning(payload: dict, status_code: int = 200) -> httpx.MockTransport:
@@ -20,7 +20,7 @@ def _transport_returning(payload: dict, status_code: int = 200) -> httpx.MockTra
 
 async def test_parse_returns_structured_goal() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(json.dumps({"title": "Run", "target": 5, "unit": "km"}))
+        _responses_payload(json.dumps({"title": "Run", "target": 5, "unit": "km"}))
     )
     parser = AzureOpenAIGoalParser("https://example.test", "key", transport=transport)
 
@@ -41,7 +41,7 @@ async def test_parse_raises_on_http_error() -> None:
 
 async def test_parse_raises_on_invalid_target() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(json.dumps({"title": "Run", "target": 0, "unit": "km"}))
+        _responses_payload(json.dumps({"title": "Run", "target": 0, "unit": "km"}))
     )
     parser = AzureOpenAIGoalParser("https://example.test", "key", transport=transport)
 
@@ -50,7 +50,15 @@ async def test_parse_raises_on_invalid_target() -> None:
 
 
 async def test_parse_raises_on_malformed_json_content() -> None:
-    transport = _transport_returning(_chat_completion_payload("not json"))
+    transport = _transport_returning(_responses_payload("not json"))
+    parser = AzureOpenAIGoalParser("https://example.test", "key", transport=transport)
+
+    with pytest.raises(GoalParseUnavailableError):
+        await parser.parse("Run")
+
+
+async def test_parse_raises_when_output_is_empty() -> None:
+    transport = _transport_returning({"output": []})
     parser = AzureOpenAIGoalParser("https://example.test", "key", transport=transport)
 
     with pytest.raises(GoalParseUnavailableError):

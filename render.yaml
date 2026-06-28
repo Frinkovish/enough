@@ -17,6 +17,8 @@ services:
         sync: false
       - key: AZURE_OPENAI_API_KEY
         sync: false
+      - key: AZURE_OPENAI_MODEL
+        value: gpt-4o-mini
 
   - type: web
     name: enough-frontend

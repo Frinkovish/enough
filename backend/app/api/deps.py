@@ -19,7 +19,9 @@ def get_suggestion_generator() -> SuggestionGenerator | None:
     settings = get_settings()
     if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
         return None
-    return AzureOpenAISuggestionGenerator(settings.azure_openai_endpoint, settings.azure_openai_api_key)
+    return AzureOpenAISuggestionGenerator(
+        settings.azure_openai_endpoint, settings.azure_openai_api_key, model=settings.azure_openai_model
+    )
 
 
 def get_suggestion_service(
@@ -35,7 +37,9 @@ def get_goal_parser() -> GoalParser | None:
     settings = get_settings()
     if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
         return None
-    return AzureOpenAIGoalParser(settings.azure_openai_endpoint, settings.azure_openai_api_key)
+    return AzureOpenAIGoalParser(
+        settings.azure_openai_endpoint, settings.azure_openai_api_key, model=settings.azure_openai_model
+    )
 
 
 def get_goal_parsing_service(

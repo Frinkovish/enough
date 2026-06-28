@@ -60,11 +60,13 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         self,
         endpoint: str,
         api_key: str,
+        model: str = "gpt-4o-mini",
         timeout_seconds: float = 8.0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._endpoint = endpoint
         self._api_key = api_key
+        self._model = model
         self._timeout_seconds = timeout_seconds
         self._transport = transport  # overridable in tests; None uses the real network
 
@@ -82,27 +84,31 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
             async with httpx.AsyncClient(
                 timeout=self._timeout_seconds, transport=self._transport
             ) as client:
+                # Azure's Responses API: deployment/model goes in the body
+                # (not the URL), and the reply is nested under
+                # output[0].content[0].text rather than choices[0].message.
                 response = await client.post(
                     self._endpoint,
                     headers={"api-key": self._api_key, "Content-Type": "application/json"},
                     json={
-                        "messages": [
+                        "model": self._model,
+                        "input": [
                             {"role": "system", "content": _SYSTEM_PROMPT},
                             {"role": "user", "content": user_prompt},
                         ],
-                        "max_tokens": 150,
+                        "max_output_tokens": 150,
                         "temperature": 0.8,
-                        "response_format": {"type": "json_object"},
+                        "text": {"format": {"type": "json_object"}},
                     },
                 )
                 response.raise_for_status()
-                content = response.json()["choices"][0]["message"]["content"]
+                content = response.json()["output"][0]["content"][0]["text"]
                 parsed = json.loads(content)
                 title = str(parsed["title"]).strip()
                 description = str(parsed["description"]).strip()
                 raw_goal_id = parsed.get("goal_id")
                 raw_goal_progress_amount = parsed.get("goal_progress_amount")
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        except (httpx.HTTPError, KeyError, IndexError, ValueError, json.JSONDecodeError) as exc:
             logger.warning("Suggestion AI call failed, falling back: %s", exc)
             raise AISuggestionUnavailableError(str(exc)) from exc
 

@@ -9,8 +9,8 @@ from app.domain.suggestion_generator import AISuggestionUnavailableError
 from app.integrations.azure_openai_suggestion_generator import AzureOpenAISuggestionGenerator
 
 
-def _chat_completion_payload(content: str) -> dict:
-    return {"choices": [{"message": {"content": content}}]}
+def _responses_payload(content: str) -> dict:
+    return {"output": [{"type": "message", "content": [{"type": "output_text", "text": content}]}]}
 
 
 def _transport_returning(payload: dict, status_code: int = 200) -> httpx.MockTransport:
@@ -22,7 +22,7 @@ def _transport_returning(payload: dict, status_code: int = 200) -> httpx.MockTra
 
 async def test_generate_returns_parsed_suggestion() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(json.dumps({"title": "Stretch", "description": "Two minutes, slow."}))
+        _responses_payload(json.dumps({"title": "Stretch", "description": "Two minutes, slow."}))
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
@@ -43,7 +43,7 @@ async def test_generate_raises_on_http_error() -> None:
 
 
 async def test_generate_raises_on_malformed_json_content() -> None:
-    transport = _transport_returning(_chat_completion_payload("not json"))
+    transport = _transport_returning(_responses_payload("not json"))
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
@@ -52,8 +52,16 @@ async def test_generate_raises_on_malformed_json_content() -> None:
 
 async def test_generate_raises_on_empty_fields() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(json.dumps({"title": "", "description": ""}))
+        _responses_payload(json.dumps({"title": "", "description": ""}))
     )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+
+    with pytest.raises(AISuggestionUnavailableError):
+        await generator.generate(CravingTrigger.STRESS, [], 14, None)
+
+
+async def test_generate_raises_when_output_is_empty() -> None:
+    transport = _transport_returning({"output": []})
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
@@ -67,7 +75,7 @@ async def test_generate_includes_goal_list_in_prompt_and_returns_chosen_goal_id(
         captured["body"] = json.loads(request.content)
         return httpx.Response(
             200,
-            json=_chat_completion_payload(
+            json=_responses_payload(
                 json.dumps(
                     {
                         "title": "Run 1 km",
@@ -88,17 +96,18 @@ async def test_generate_includes_goal_list_in_prompt_and_returns_chosen_goal_id(
 
     suggestion = await generator.generate(CravingTrigger.BOREDOM, goals, 14, None)
 
-    user_message = captured["body"]["messages"][1]["content"]
+    user_message = captured["body"]["input"][1]["content"]
     assert "Run" in user_message
     assert "Read" in user_message
     assert "2/5 km" in user_message
+    assert captured["body"]["model"] == "gpt-4o-mini"
     assert suggestion.goal_id == "run-goal"
     assert suggestion.goal_progress_amount == 1
 
 
 async def test_generate_uses_ai_stated_goal_progress_amount() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(
+        _responses_payload(
             json.dumps(
                 {
                     "title": "Read 5 pages quietly",
@@ -120,7 +129,7 @@ async def test_generate_uses_ai_stated_goal_progress_amount() -> None:
 
 async def test_generate_clamps_goal_progress_amount_to_remaining() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(
+        _responses_payload(
             json.dumps(
                 {
                     "title": "Read 10 pages",
@@ -141,7 +150,7 @@ async def test_generate_clamps_goal_progress_amount_to_remaining() -> None:
 
 async def test_generate_defaults_goal_progress_amount_to_one_when_missing() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(
+        _responses_payload(
             json.dumps({"title": "Run a bit", "description": "Easy pace.", "goal_id": "run-goal"})
         )
     )
@@ -156,7 +165,7 @@ async def test_generate_defaults_goal_progress_amount_to_one_when_missing() -> N
 
 async def test_generate_clears_goal_when_already_complete() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(
+        _responses_payload(
             json.dumps(
                 {
                     "title": "Read a page",
@@ -178,7 +187,7 @@ async def test_generate_clears_goal_when_already_complete() -> None:
 
 async def test_generate_ignores_goal_id_not_in_the_given_list() -> None:
     transport = _transport_returning(
-        _chat_completion_payload(
+        _responses_payload(
             json.dumps({"title": "Run 1 km", "description": "Easy pace.", "goal_id": "made-up-id"})
         )
     )
@@ -197,7 +206,7 @@ async def test_generate_includes_local_hour_in_prompt() -> None:
         captured["body"] = json.loads(request.content)
         return httpx.Response(
             200,
-            json=_chat_completion_payload(json.dumps({"title": "Read a page", "description": "Quietly."})),
+            json=_responses_payload(json.dumps({"title": "Read a page", "description": "Quietly."})),
         )
 
     transport = httpx.MockTransport(handler)
@@ -205,7 +214,7 @@ async def test_generate_includes_local_hour_in_prompt() -> None:
 
     await generator.generate(CravingTrigger.BOREDOM, [], 4, None)
 
-    user_message = captured["body"]["messages"][1]["content"]
+    user_message = captured["body"]["input"][1]["content"]
     assert "04:00" in user_message
 
 
@@ -216,7 +225,7 @@ async def test_generate_includes_last_suggestion_for_variety() -> None:
         captured["body"] = json.loads(request.content)
         return httpx.Response(
             200,
-            json=_chat_completion_payload(json.dumps({"title": "Tidy a drawer", "description": "Quick win."})),
+            json=_responses_payload(json.dumps({"title": "Tidy a drawer", "description": "Quick win."})),
         )
 
     transport = httpx.MockTransport(handler)
@@ -224,5 +233,5 @@ async def test_generate_includes_last_suggestion_for_variety() -> None:
 
     await generator.generate(CravingTrigger.HABIT, [], 14, "Run 1 km")
 
-    user_message = captured["body"]["messages"][1]["content"]
+    user_message = captured["body"]["input"][1]["content"]
     assert "Run 1 km" in user_message

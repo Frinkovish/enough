@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     cors_origin_regex: str | None = None
     azure_openai_endpoint: str | None = None
     azure_openai_api_key: str | None = None
+    azure_openai_model: str = "gpt-4o-mini"
 
 
 @lru_cache
