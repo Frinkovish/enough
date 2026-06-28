@@ -23,12 +23,35 @@ _SYSTEM_PROMPT = (
     "genuinely fits this exact moment, make the suggestion contribute to it: return that goal's "
     "id, and state in goal_progress_amount exactly how many of its units the task represents — "
     "this number MUST match the quantity stated in your own title/description (e.g. if your "
-    'title says "Read 5 pages", goal_progress_amount must be 5). If no goal fits, return '
-    'goal_id as null and goal_progress_amount as 0. Never force-fit a goal that doesn\'t make '
-    'sense right now (e.g. don\'t pick a running goal at 4am). Respond ONLY with compact JSON: '
+    'title says "Read 5 pages", goal_progress_amount must be 5). Be honest about scale: a task '
+    "that fits in well under 20 minutes can only honestly represent a small slice of a "
+    "coarse-grained goal — never claim a whole 'hour' or a whole 'session' for a couple of "
+    "minutes of activity. If the goal's unit is something a brief task cannot truthfully earn "
+    "a nonzero whole-number amount of (e.g. 'hours' for a study goal, 'sessions' for a goal "
+    "needing a dedicated occasion like a workout class or a match), leave that goal alone. If "
+    "no goal fits, return goal_id as null and goal_progress_amount as 0. Never force-fit a goal "
+    "that doesn't make sense right now (e.g. don't pick a running goal at 4am, and don't pick a "
+    "goal just because the activity is thematically similar — it must actually earn a truthful "
+    "quantity). Respond ONLY with compact JSON: "
     '{"title": "<=6 words", "description": "<=20 words", "goal_id": "<one of the given ids, or '
     'null>", "goal_progress_amount": <integer, 0 if goal_id is null>}.'
 )
+
+# Units a sub-20-minute task can never honestly earn a whole unit of —
+# enforced in code since the AI doesn't always follow the prompt's
+# instruction not to claim these (see _SYSTEM_PROMPT).
+_UNCOUNTABLE_UNITS = {
+    "hour",
+    "hours",
+    "session",
+    "sessions",
+    "class",
+    "classes",
+    "workout",
+    "workouts",
+    "day",
+    "days",
+}
 
 
 def _build_user_prompt(
@@ -128,6 +151,14 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         goals_by_id = {goal.id: goal for goal in goals}
         goal_id = str(raw_goal_id).strip() if raw_goal_id else None
         if goal_id not in goals_by_id:
+            goal_id = None
+
+        # The AI is asked not to claim a whole "hour" or "session" for a
+        # sub-20-minute task (see _SYSTEM_PROMPT), but it doesn't always
+        # comply — enforce it here so a quick task can never be miscredited
+        # as a full unit of a coarse-grained goal like "5 hours" or
+        # "8 sessions".
+        if goal_id is not None and goals_by_id[goal_id].unit.strip().lower() in _UNCOUNTABLE_UNITS:
             goal_id = None
 
         goal_progress_amount = 0
