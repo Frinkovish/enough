@@ -5,16 +5,12 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: DATABASE_URL
-        value: sqlite+aiosqlite:///./dev.db
       - key: SUPABASE_URL
         value: https://zpwddyhyitvjrgonfyvw.supabase.co
       - key: CORS_ORIGINS
         value: '["https://enough-frontend.onrender.com"]'
-      - key: SQL_ECHO
-        value: 'false'
       # Secrets — set these manually in the Render dashboard after the
       # first deploy. Never put real values here; this file is committed.
       - key: AZURE_OPENAI_ENDPOINT

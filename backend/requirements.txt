@@ -1,8 +1,5 @@
 fastapi>=0.115,<0.116
 uvicorn[standard]>=0.32,<0.33
-sqlalchemy>=2.0.36,<2.1
-asyncpg>=0.30,<0.31
-alembic>=1.14,<1.15
 pydantic>=2.9,<3.0
 pydantic-settings>=2.6,<2.7
 pyjwt[crypto]>=2.9,<2.10
