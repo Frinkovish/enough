@@ -35,7 +35,13 @@ class HomeScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   const StatsSummary(),
-                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.push(AppRoutes.insights),
+                      child: const Text('View your patterns'),
+                    ),
+                  ),
                   const GoalsSection(),
                   const SizedBox(height: 32),
                   Text(
