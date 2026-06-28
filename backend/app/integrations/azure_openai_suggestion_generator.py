@@ -32,9 +32,12 @@ _SYSTEM_PROMPT = (
     "no goal fits, return goal_id as null and goal_progress_amount as 0. Never force-fit a goal "
     "that doesn't make sense right now (e.g. don't pick a running goal at 4am, and don't pick a "
     "goal just because the activity is thematically similar — it must actually earn a truthful "
-    "quantity). Respond ONLY with compact JSON: "
+    "quantity). Also state in goal_reasoning, in well under 15 words, why you picked that goal "
+    "(or why none fit) — this is shown to the developer for debugging, not the end user. "
+    "Respond ONLY with compact JSON: "
     '{"title": "<=6 words", "description": "<=20 words", "goal_id": "<one of the given ids, or '
-    'null>", "goal_progress_amount": <integer, 0 if goal_id is null>}.'
+    'null>", "goal_progress_amount": <integer, 0 if goal_id is null>, "goal_reasoning": '
+    '"<=15 words"}.'
 )
 
 # Units a sub-20-minute task can never honestly earn a whole unit of —
@@ -117,7 +120,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                         {"role": "system", "content": _SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},
                     ],
-                    "max_output_tokens": 150,
+                    "max_output_tokens": 200,
                     "text": {"format": {"type": "json_object"}},
                 }
                 if is_reasoning_model(self._model):
@@ -140,6 +143,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                 description = str(parsed["description"]).strip()
                 raw_goal_id = parsed.get("goal_id")
                 raw_goal_progress_amount = parsed.get("goal_progress_amount")
+                goal_reasoning = str(parsed.get("goal_reasoning") or "").strip()
         except (httpx.HTTPError, KeyError, IndexError, ValueError, json.JSONDecodeError) as exc:
             logger.warning("Suggestion AI call failed, falling back: %s", exc)
             raise AISuggestionUnavailableError(str(exc)) from exc
@@ -158,8 +162,27 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         # comply — enforce it here so a quick task can never be miscredited
         # as a full unit of a coarse-grained goal like "5 hours" or
         # "8 sessions".
-        if goal_id is not None and goals_by_id[goal_id].unit.strip().lower() in _UNCOUNTABLE_UNITS:
+        blocked_uncountable_goal = (
+            goal_id is not None and goals_by_id[goal_id].unit.strip().lower() in _UNCOUNTABLE_UNITS
+        )
+        if blocked_uncountable_goal:
             goal_id = None
+
+        # The AI sometimes credits a goal that has nothing to do with the
+        # task it just wrote (e.g. a muscle-relaxation exercise credited
+        # as "reading pages", with a reasoning string that doesn't match
+        # the title at all). Require the goal's own unit to actually be
+        # mentioned in the task's title/description as a sanity check —
+        # if the task doesn't talk about pages/km/etc., it isn't earning
+        # progress in that unit.
+        blocked_unit_not_mentioned = False
+        if goal_id is not None:
+            unit = goals_by_id[goal_id].unit.strip().lower()
+            haystack = f"{title} {description}".lower()
+            mentions_unit = bool(unit) and (unit in haystack or unit.rstrip("s") in haystack)
+            if not mentions_unit:
+                blocked_unit_not_mentioned = True
+                goal_id = None
 
         goal_progress_amount = 0
         if goal_id is not None:
@@ -175,11 +198,15 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                 goal_id = None
 
         logger.info(
-            "Suggestion AI returned: title=%r description=%r goal_id=%r goal_progress_amount=%r",
+            "Suggestion AI returned: title=%r description=%r goal_id=%r goal_progress_amount=%r "
+            "goal_reasoning=%r blocked_uncountable_goal=%s blocked_unit_not_mentioned=%s",
             title,
             description,
             goal_id,
             goal_progress_amount,
+            goal_reasoning,
+            blocked_uncountable_goal,
+            blocked_unit_not_mentioned,
         )
         return TaskSuggestion(
             id=f"ai:{uuid4()}",

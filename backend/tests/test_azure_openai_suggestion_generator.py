@@ -148,10 +148,10 @@ async def test_generate_clamps_goal_progress_amount_to_remaining() -> None:
     assert suggestion.goal_progress_amount == 5
 
 
-async def test_generate_defaults_goal_progress_amount_to_one_when_missing() -> None:
+async def test_generate_defaults_goal_progress_amount_to_one_when_missing_but_unit_mentioned() -> None:
     transport = _transport_returning(
         _responses_payload(
-            json.dumps({"title": "Run a bit", "description": "Easy pace.", "goal_id": "run-goal"})
+            json.dumps({"title": "Run a quick km", "description": "Easy pace.", "goal_id": "run-goal"})
         )
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
@@ -161,6 +161,31 @@ async def test_generate_defaults_goal_progress_amount_to_one_when_missing() -> N
 
     assert suggestion.goal_id == "run-goal"
     assert suggestion.goal_progress_amount == 1
+
+
+async def test_generate_does_not_credit_goal_when_task_does_not_mention_its_unit() -> None:
+    """Guards against the AI hallucinating a justification for crediting a
+    goal that the suggested task has nothing to do with (e.g. a muscle
+    relaxation exercise credited as "reading pages")."""
+    transport = _transport_returning(
+        _responses_payload(
+            json.dumps(
+                {
+                    "title": "Tense-and-release scan",
+                    "description": "From toes to head, gently tense then release.",
+                    "goal_id": "read-goal",
+                    "goal_progress_amount": 4,
+                }
+            )
+        )
+    )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+    goals = [GoalContext(id="read-goal", title="Read", target=300, unit="pages", progress=0)]
+
+    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 14, None)
+
+    assert suggestion.goal_id is None
+    assert suggestion.goal_progress_amount == 0
 
 
 async def test_generate_clears_goal_when_already_complete() -> None:
