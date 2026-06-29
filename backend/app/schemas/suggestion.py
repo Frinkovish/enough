@@ -42,6 +42,7 @@ class SuggestionRead(BaseModel):
     id: str
     title: str
     description: str
+    reasoning: str = ""
     category: TaskCategory
     goal_id: str | None = None
     goal_progress_amount: float = 0.0
@@ -52,6 +53,7 @@ class SuggestionRead(BaseModel):
             id=suggestion.id,
             title=suggestion.title,
             description=suggestion.description,
+            reasoning=suggestion.reasoning,
             category=suggestion.category,
             goal_id=suggestion.goal_id,
             goal_progress_amount=suggestion.goal_progress_amount,

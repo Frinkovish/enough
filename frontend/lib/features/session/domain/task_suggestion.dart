@@ -68,6 +68,7 @@ class TaskSuggestion {
     required this.title,
     required this.description,
     required this.category,
+    this.reasoning = '',
     this.goalId,
     this.goalProgressAmount = 0,
   });
@@ -76,6 +77,10 @@ class TaskSuggestion {
   final String title;
   final String description;
   final TaskCategory category;
+
+  /// Short user-facing sentence explaining why this task fits the
+  /// person's current state — shown in the UI alongside the task.
+  final String reasoning;
 
   /// Set when this suggestion was chosen (by the AI) to advance a
   /// specific active goal — null if it doesn't target any goal.

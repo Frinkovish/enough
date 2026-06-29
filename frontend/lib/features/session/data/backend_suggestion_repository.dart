@@ -68,6 +68,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
       id: body['id'] as String,
       title: body['title'] as String,
       description: body['description'] as String,
+      reasoning: (body['reasoning'] as String?) ?? '',
       category: TaskCategoryLabel.fromWire(body['category'] as String?) ?? TaskCategory.reflection,
       goalId: body['goal_id'] as String?,
       goalProgressAmount: (body['goal_progress_amount'] as num?) ?? 0,

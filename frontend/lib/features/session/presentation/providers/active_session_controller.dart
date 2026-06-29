@@ -167,6 +167,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
       description:
           'Towards your goal: ${goal.title} ${goal.target.formatted} ${goal.unit} '
           '(${goal.progress.formatted}/${goal.target.formatted} so far)',
+      reasoning: 'This moves you toward a goal you already care about.',
       category: _categoryForGoalUnit(goal.unit),
       goalId: goal.id,
       goalProgressAmount: 1,

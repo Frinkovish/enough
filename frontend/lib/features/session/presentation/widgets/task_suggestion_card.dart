@@ -59,6 +59,26 @@ class TaskSuggestionCard extends StatelessWidget {
             Text(task.title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(task.description, style: Theme.of(context).textTheme.bodyMedium),
+            if (task.reasoning.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lightbulb_outline,
+                      size: 14, color: colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      task.reasoning,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

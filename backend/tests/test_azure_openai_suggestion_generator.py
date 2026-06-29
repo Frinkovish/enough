@@ -30,7 +30,14 @@ def _transport_returning(payload: dict, status_code: int = 200) -> httpx.MockTra
 async def test_generate_returns_parsed_suggestion() -> None:
     transport = _transport_returning(
         _responses_payload(
-            json.dumps({"title": "Stretch", "description": "Two minutes, slow.", "category": "breathing"})
+            json.dumps(
+                {
+                    "title": "Stretch",
+                    "description": "Two minutes, slow.",
+                    "reasoning": "Your energy is low, so something gentle.",
+                    "category": "breathing",
+                }
+            )
         )
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
@@ -39,9 +46,23 @@ async def test_generate_returns_parsed_suggestion() -> None:
 
     assert suggestion.title == "Stretch"
     assert suggestion.description == "Two minutes, slow."
+    assert suggestion.reasoning == "Your energy is low, so something gentle."
     assert suggestion.category == TaskCategory.BREATHING
     assert suggestion.id.startswith("ai:")
     assert suggestion.goal_id is None
+
+
+async def test_generate_defaults_reasoning_when_missing() -> None:
+    transport = _transport_returning(
+        _responses_payload(
+            json.dumps({"title": "Stretch", "description": "Two minutes, slow.", "category": "breathing"})
+        )
+    )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+
+    suggestion = await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+
+    assert suggestion.reasoning  # falls back to a non-empty default, never blank
 
 
 async def test_generate_falls_back_to_reflection_category_when_missing_or_invalid() -> None:

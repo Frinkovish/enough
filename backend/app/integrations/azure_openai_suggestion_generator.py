@@ -21,7 +21,12 @@ _CATEGORY_LIST = ", ".join(category.value for category in TaskCategory)
 
 _SYSTEM_PROMPT = (
     "You are a behavioral coach helping someone delay a craving for 20 minutes — not a "
-    "recommendation engine optimizing for what they'd click. Tone: warm, non-judgmental, never "
+    "recommendation engine optimizing for what they'd click. Think like a clinical psychologist, "
+    "not a task generator: the suggestion should match their current psychological state while "
+    "gently moving them toward the person they want to become. The best intervention is the one "
+    "most likely to interrupt the craving, preserve self-efficacy, and create meaningful progress "
+    "— not necessarily the easiest or most enjoyable activity. "
+    "Tone: warm, non-judgmental, never "
     "preachy, never guilt-inducing. Your job, in order: (1) reduce the immediate craving, "
     "(2) strengthen their executive control and sense of identity, (3) support their long-term "
     "goals, (4) keep things varied so this doesn't feel repetitive, (5) suggest the smallest "
@@ -53,10 +58,15 @@ _SYSTEM_PROMPT = (
     "0. Never force-fit a goal just because the activity is thematically similar — it must "
     "actually earn a truthful, stated quantity. "
     "Also state in goal_reasoning, in well under 15 words, why you picked that goal (or why none "
-    "fit) — this is shown to the developer for debugging, not the end user. Respond ONLY with "
-    'compact JSON: {"title": "<=6 words", "description": "<=20 words", "category": "<one of the '
-    'categories above>", "goal_id": "<one of the given ids, or null>", "goal_progress_amount": '
-    '<number, 0 if goal_id is null>, "goal_reasoning": "<=15 words"}.'
+    "fit) — this is shown to the developer for debugging, not the end user. Separately, in "
+    "reasoning, write one short sentence (<=20 words) directly to the person, in second person, "
+    'explaining why *this* task fits their state right now — e.g. "Your energy is low, so '
+    'something small that still gets you moving." This one IS shown to them, so it must read as a '
+    "genuine, warm explanation of the clinical reasoning above, not a generic platitude. Respond "
+    'ONLY with compact JSON: {"title": "<=6 words", "description": "<=20 words", "reasoning": '
+    '"<=20 words, shown to the user", "category": "<one of the categories above>", "goal_id": "<one '
+    'of the given ids, or null>", "goal_progress_amount": <number, 0 if goal_id is null>, '
+    '"goal_reasoning": "<=15 words, debug only"}.'
 )
 
 
@@ -159,7 +169,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                         {"role": "system", "content": _SYSTEM_PROMPT},
                         {"role": "user", "content": user_prompt},
                     ],
-                    "max_output_tokens": 250,
+                    "max_output_tokens": 320,
                     "text": {"format": {"type": "json_object"}},
                 }
                 if is_reasoning_model(self._model):
@@ -169,7 +179,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                     # give extra headroom on top of the visible-answer
                     # budget above rather than risk truncating the answer.
                     body["reasoning"] = {"effort": "minimal"}
-                    body["max_output_tokens"] += 200
+                    body["max_output_tokens"] += 250
                 response = await client.post(
                     self._endpoint,
                     headers={"api-key": self._api_key, "Content-Type": "application/json"},
@@ -180,6 +190,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                 parsed = json.loads(content)
                 title = str(parsed["title"]).strip()
                 description = str(parsed["description"]).strip()
+                reasoning = str(parsed.get("reasoning") or "").strip()
                 raw_category = parsed.get("category")
                 raw_goal_id = parsed.get("goal_id")
                 raw_goal_progress_amount = parsed.get("goal_progress_amount")
@@ -191,6 +202,11 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         if not title or not description:
             logger.warning("Suggestion AI returned empty title/description, falling back")
             raise AISuggestionUnavailableError("Empty title or description from AI response")
+
+        # The user-facing "why this" line — fall back to something honest
+        # rather than leaving it blank if the model omits it.
+        if not reasoning:
+            reasoning = "Picked to match where you are right now."
 
         category, category_fallback = _resolve_category(raw_category)
 
@@ -233,11 +249,12 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
                 goal_id = None
 
         logger.info(
-            "Suggestion AI returned: title=%r description=%r category=%r category_fallback=%s "
-            "goal_id=%r goal_progress_amount=%r goal_reasoning=%r derived_amount=%r "
-            "claim_mismatch=%s",
+            "Suggestion AI returned: title=%r description=%r reasoning=%r category=%r "
+            "category_fallback=%s goal_id=%r goal_progress_amount=%r goal_reasoning=%r "
+            "derived_amount=%r claim_mismatch=%s",
             title,
             description,
+            reasoning,
             category,
             category_fallback,
             goal_id,
@@ -250,6 +267,7 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
             id=f"ai:{uuid4()}",
             title=title,
             description=description,
+            reasoning=reasoning,
             category=category,
             goal_id=goal_id,
             goal_progress_amount=goal_progress_amount,
