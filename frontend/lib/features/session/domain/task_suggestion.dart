@@ -35,7 +35,8 @@ class TaskSuggestion {
   final String? goalId;
 
   /// How many units of the goal's own unit this task represents (e.g.
-  /// "Read 5 pages" -> 5 for a goal measured in pages). Always 0 when
-  /// [goalId] is null.
-  final int goalProgressAmount;
+  /// "Read 5 pages" -> 5 for a goal measured in pages). May be
+  /// fractional (e.g. 0.25 of an "hours" goal from a 15-minute task).
+  /// Always 0 when [goalId] is null.
+  final num goalProgressAmount;
 }

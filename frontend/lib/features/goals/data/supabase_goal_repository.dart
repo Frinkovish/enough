@@ -23,9 +23,9 @@ class SupabaseGoalRepository implements GoalRepository {
       userId: row['user_id'] as String,
       month: DateTime.parse(row['month'] as String),
       title: row['title'] as String,
-      target: row['target'] as int,
+      target: row['target'] as num,
       unit: row['unit'] as String,
-      progress: row['progress'] as int,
+      progress: row['progress'] as num,
     );
   }
 
@@ -46,7 +46,7 @@ class SupabaseGoalRepository implements GoalRepository {
   @override
   Future<MonthlyGoal> createGoal({
     required String title,
-    required int target,
+    required num target,
     required String unit,
   }) async {
     final userId = _client.auth.currentUser?.id;
@@ -82,10 +82,10 @@ class SupabaseGoalRepository implements GoalRepository {
   }
 
   @override
-  Future<void> incrementProgress(String goalId, {required int amount}) async {
+  Future<void> incrementProgress(String goalId, {required num amount}) async {
     final row = await _client.from(_table).select('progress, target').eq('id', goalId).single();
-    final progress = row['progress'] as int;
-    final target = row['target'] as int;
+    final progress = row['progress'] as num;
+    final target = row['target'] as num;
     if (progress >= target) return;
 
     final newProgress = (progress + amount).clamp(0, target);
@@ -96,7 +96,7 @@ class SupabaseGoalRepository implements GoalRepository {
   Future<void> updateGoal({
     required String goalId,
     required String title,
-    required int target,
+    required num target,
     required String unit,
   }) async {
     await _client.from(_table).update({

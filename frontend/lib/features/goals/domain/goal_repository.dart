@@ -8,15 +8,16 @@ abstract class GoalRepository {
 
   /// Throws [TooManyActiveGoalsError] if the user already has
   /// [MonthlyGoal.maxActiveGoals] active goals this month.
-  Future<MonthlyGoal> createGoal({required String title, required int target, required String unit});
+  Future<MonthlyGoal> createGoal({required String title, required num target, required String unit});
 
   /// Adds [amount] units of progress to the goal, capped at its target.
-  Future<void> incrementProgress(String goalId, {required int amount});
+  /// [amount] may be fractional (e.g. 0.25 of an "hours" goal).
+  Future<void> incrementProgress(String goalId, {required num amount});
 
   Future<void> updateGoal({
     required String goalId,
     required String title,
-    required int target,
+    required num target,
     required String unit,
   });
 

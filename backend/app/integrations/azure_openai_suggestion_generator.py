@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from uuid import uuid4
 
 import httpx
@@ -9,6 +10,7 @@ from app.domain.goal_context import GoalContext
 from app.domain.suggestion_generator import AISuggestionUnavailableError, SuggestionGenerator
 from app.domain.task_suggestion import TaskCategory, TaskSuggestion
 from app.integrations.azure_responses import extract_output_text, is_reasoning_model
+from app.integrations.quantity_extraction import extract_amount_in_unit, format_number
 
 logger = logging.getLogger("app.suggestions")
 
@@ -19,42 +21,22 @@ _SYSTEM_PROMPT = (
     "jogging, loud exercise, or going outside very late at night or very early morning; "
     "prefer quiet, indoor actions then. If told what was suggested last time, suggest "
     "something noticeably different in kind. You may be given a list of the person's active "
-    "goals, each with an id and a unit (e.g. km, pages, hours). If — and only if — one of them "
-    "genuinely fits this exact moment, make the suggestion contribute to it: return that goal's "
-    "id, and state in goal_progress_amount exactly how many of its units the task represents — "
-    "this number MUST match the quantity stated in your own title/description (e.g. if your "
-    'title says "Read 5 pages", goal_progress_amount must be 5). Be honest about scale: a task '
-    "that fits in well under 20 minutes can only honestly represent a small slice of a "
-    "coarse-grained goal — never claim a whole 'hour' or a whole 'session' for a couple of "
-    "minutes of activity. If the goal's unit is something a brief task cannot truthfully earn "
-    "a nonzero whole-number amount of (e.g. 'hours' for a study goal, 'sessions' for a goal "
-    "needing a dedicated occasion like a workout class or a match), leave that goal alone. If "
-    "no goal fits, return goal_id as null and goal_progress_amount as 0. Never force-fit a goal "
-    "that doesn't make sense right now (e.g. don't pick a running goal at 4am, and don't pick a "
-    "goal just because the activity is thematically similar — it must actually earn a truthful "
-    "quantity). Also state in goal_reasoning, in well under 15 words, why you picked that goal "
-    "(or why none fit) — this is shown to the developer for debugging, not the end user. "
-    "Respond ONLY with compact JSON: "
-    '{"title": "<=6 words", "description": "<=20 words", "goal_id": "<one of the given ids, or '
-    'null>", "goal_progress_amount": <integer, 0 if goal_id is null>, "goal_reasoning": '
-    '"<=15 words"}.'
+    "goals, each with an id and a unit (e.g. km, pages, hours, sessions). If — and only if — "
+    "one of them genuinely fits this exact moment, make the suggestion contribute to it: state "
+    "a real, concrete quantity with its own natural unit somewhere in your title or description "
+    '(e.g. "15 minutes", "4 pages", "1 km", "one session") — use whatever unit honestly '
+    "describes the activity, not necessarily the goal's own unit; the app converts between "
+    "compatible units (e.g. minutes into hours). Then return that goal's id, and your own best "
+    "estimate of goal_progress_amount expressed in the goal's own unit. Never invent a quantity "
+    "that isn't backed by what your title/description actually says. If no goal genuinely fits, "
+    "return goal_id as null and goal_progress_amount as 0. Never force-fit a goal just because "
+    "the activity is thematically similar — it must actually earn a truthful, stated quantity. "
+    "Also state in goal_reasoning, in well under 15 words, why you picked that goal (or why none "
+    "fit) — this is shown to the developer for debugging, not the end user. Respond ONLY with "
+    'compact JSON: {"title": "<=6 words", "description": "<=20 words", "goal_id": "<one of the '
+    'given ids, or null>", "goal_progress_amount": <number, 0 if goal_id is null>, '
+    '"goal_reasoning": "<=15 words"}.'
 )
-
-# Units a sub-20-minute task can never honestly earn a whole unit of —
-# enforced in code since the AI doesn't always follow the prompt's
-# instruction not to claim these (see _SYSTEM_PROMPT).
-_UNCOUNTABLE_UNITS = {
-    "hour",
-    "hours",
-    "session",
-    "sessions",
-    "class",
-    "classes",
-    "workout",
-    "workouts",
-    "day",
-    "days",
-}
 
 
 def _build_user_prompt(
@@ -69,7 +51,8 @@ def _build_user_prompt(
     ]
     if goals:
         goal_lines = "; ".join(
-            f'id={goal.id}: "{goal.title}" ({goal.progress}/{goal.target} {goal.unit} so far)'
+            f'id={goal.id}: "{goal.title}" ({format_number(goal.progress)}/'
+            f"{format_number(goal.target)} {goal.unit} so far)"
             for goal in goals
         )
         parts.append(f"Their active goals: {goal_lines}.")
@@ -80,6 +63,13 @@ def _build_user_prompt(
         )
     parts.append("Suggest one small task now.")
     return " ".join(parts)
+
+
+def _safe_float(value: object) -> float | None:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
 
 
 class AzureOpenAISuggestionGenerator(SuggestionGenerator):
@@ -157,56 +147,49 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         if goal_id not in goals_by_id:
             goal_id = None
 
-        # The AI is asked not to claim a whole "hour" or "session" for a
-        # sub-20-minute task (see _SYSTEM_PROMPT), but it doesn't always
-        # comply — enforce it here so a quick task can never be miscredited
-        # as a full unit of a coarse-grained goal like "5 hours" or
-        # "8 sessions".
-        blocked_uncountable_goal = (
-            goal_id is not None and goals_by_id[goal_id].unit.strip().lower() in _UNCOUNTABLE_UNITS
-        )
-        if blocked_uncountable_goal:
-            goal_id = None
-
-        # The AI sometimes credits a goal that has nothing to do with the
-        # task it just wrote (e.g. a muscle-relaxation exercise credited
-        # as "reading pages", with a reasoning string that doesn't match
-        # the title at all). Require the goal's own unit to actually be
-        # mentioned in the task's title/description as a sanity check —
-        # if the task doesn't talk about pages/km/etc., it isn't earning
-        # progress in that unit.
-        blocked_unit_not_mentioned = False
+        # The AI doesn't always state an honest, derivable quantity even
+        # when asked to — derive the actual credited amount from the
+        # task's own title/description instead of trusting
+        # goal_progress_amount blindly. This is also how any unit (hours,
+        # sessions, days, ...) becomes eligible: there's no hardcoded list
+        # of forbidden units, just a requirement that the task's text
+        # actually states a quantity that resolves to this goal's unit.
+        derived_amount = None
         if goal_id is not None:
-            unit = goals_by_id[goal_id].unit.strip().lower()
-            haystack = f"{title} {description}".lower()
-            mentions_unit = bool(unit) and (unit in haystack or unit.rstrip("s") in haystack)
-            if not mentions_unit:
-                blocked_unit_not_mentioned = True
+            derived_amount = extract_amount_in_unit(f"{title} {description}", goals_by_id[goal_id].unit)
+            if derived_amount is None or derived_amount <= 0:
                 goal_id = None
 
-        goal_progress_amount = 0
+        # Cross-check: if the AI's own claimed amount meaningfully
+        # contradicts what its task text actually states, something is
+        # inconsistent (e.g. a hallucinated justification) — don't trust
+        # either number.
+        claim_mismatch = False
         if goal_id is not None:
-            try:
-                goal_progress_amount = int(raw_goal_progress_amount)
-            except (TypeError, ValueError):
-                goal_progress_amount = 1
-            if goal_progress_amount < 1:
-                goal_progress_amount = 1
+            claimed = _safe_float(raw_goal_progress_amount)
+            if claimed is not None and not math.isclose(
+                claimed, derived_amount, rel_tol=0.1, abs_tol=0.05
+            ):
+                claim_mismatch = True
+                goal_id = None
+
+        goal_progress_amount = 0.0
+        if goal_id is not None:
             remaining = max(goals_by_id[goal_id].target - goals_by_id[goal_id].progress, 0)
-            goal_progress_amount = min(goal_progress_amount, remaining) if remaining > 0 else 0
-            if goal_progress_amount == 0:
+            goal_progress_amount = min(derived_amount, remaining) if remaining > 0 else 0.0
+            if goal_progress_amount <= 0:
                 goal_id = None
 
         logger.info(
             "Suggestion AI returned: title=%r description=%r goal_id=%r goal_progress_amount=%r "
-            "goal_reasoning=%r blocked_uncountable_goal=%s blocked_unit_not_mentioned=%s",
+            "goal_reasoning=%r derived_amount=%r claim_mismatch=%s",
             title,
             description,
             goal_id,
             goal_progress_amount,
             goal_reasoning,
-            blocked_uncountable_goal,
-            blocked_unit_not_mentioned,
+            derived_amount,
+            claim_mismatch,
         )
         return TaskSuggestion(
             id=f"ai:{uuid4()}",

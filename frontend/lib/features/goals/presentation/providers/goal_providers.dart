@@ -52,7 +52,7 @@ class GoalController extends AsyncNotifier<void> {
   Future<void> updateGoal({
     required String goalId,
     required String title,
-    required int target,
+    required num target,
     required String unit,
   }) async {
     state = const AsyncLoading();

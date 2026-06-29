@@ -148,10 +148,10 @@ async def test_generate_clamps_goal_progress_amount_to_remaining() -> None:
     assert suggestion.goal_progress_amount == 5
 
 
-async def test_generate_defaults_goal_progress_amount_to_one_when_missing_but_unit_mentioned() -> None:
+async def test_generate_derives_goal_progress_amount_from_text_when_claim_missing() -> None:
     transport = _transport_returning(
         _responses_payload(
-            json.dumps({"title": "Run a quick km", "description": "Easy pace.", "goal_id": "run-goal"})
+            json.dumps({"title": "Run 1 km", "description": "Easy pace.", "goal_id": "run-goal"})
         )
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
@@ -163,7 +163,77 @@ async def test_generate_defaults_goal_progress_amount_to_one_when_missing_but_un
     assert suggestion.goal_progress_amount == 1
 
 
-async def test_generate_does_not_credit_goal_when_task_does_not_mention_its_unit() -> None:
+async def test_generate_converts_minutes_to_hours_for_an_hours_goal() -> None:
+    """Any unit is eligible as long as the task text states a quantity
+    that converts to it — no hardcoded list of forbidden units."""
+    transport = _transport_returning(
+        _responses_payload(
+            json.dumps(
+                {
+                    "title": "Study DBT flashcards",
+                    "description": "Review for 15 minutes, no pressure.",
+                    "goal_id": "dbt-goal",
+                    "goal_progress_amount": 0.25,
+                }
+            )
+        )
+    )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+    goals = [GoalContext(id="dbt-goal", title="Learn DBT", target=5, unit="hours", progress=1)]
+
+    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 16, None)
+
+    assert suggestion.goal_id == "dbt-goal"
+    assert suggestion.goal_progress_amount == 0.25
+
+
+async def test_generate_credits_a_spelled_out_session_count() -> None:
+    transport = _transport_returning(
+        _responses_payload(
+            json.dumps(
+                {
+                    "title": "Padel serve drill",
+                    "description": "Practice padel serves for one session.",
+                    "goal_id": "padel-goal",
+                    "goal_progress_amount": 1,
+                }
+            )
+        )
+    )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+    goals = [GoalContext(id="padel-goal", title="Padel Practice", target=8, unit="sessions", progress=0)]
+
+    suggestion = await generator.generate(CravingTrigger.BOREDOM, goals, 16, None)
+
+    assert suggestion.goal_id == "padel-goal"
+    assert suggestion.goal_progress_amount == 1
+
+
+async def test_generate_blocks_credit_when_claimed_amount_contradicts_task_text() -> None:
+    """If the AI's claimed goal_progress_amount disagrees with what its
+    own title/description actually states, trust neither number."""
+    transport = _transport_returning(
+        _responses_payload(
+            json.dumps(
+                {
+                    "title": "Study DBT flashcards",
+                    "description": "Review for 15 minutes, no pressure.",
+                    "goal_id": "dbt-goal",
+                    "goal_progress_amount": 1,  # claims a whole hour, text says 15 minutes
+                }
+            )
+        )
+    )
+    generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
+    goals = [GoalContext(id="dbt-goal", title="Learn DBT", target=5, unit="hours", progress=0)]
+
+    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 16, None)
+
+    assert suggestion.goal_id is None
+    assert suggestion.goal_progress_amount == 0
+
+
+async def test_generate_does_not_credit_goal_when_no_quantity_derivable_from_text() -> None:
     """Guards against the AI hallucinating a justification for crediting a
     goal that the suggested task has nothing to do with (e.g. a muscle
     relaxation exercise credited as "reading pages")."""
@@ -193,7 +263,7 @@ async def test_generate_clears_goal_when_already_complete() -> None:
         _responses_payload(
             json.dumps(
                 {
-                    "title": "Read a page",
+                    "title": "Read 5 pages",
                     "description": "Just for fun.",
                     "goal_id": "read-goal",
                     "goal_progress_amount": 5,

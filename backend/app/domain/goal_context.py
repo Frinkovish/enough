@@ -12,6 +12,6 @@ class GoalContext:
 
     id: str
     title: str
-    target: int
+    target: float
     unit: str
-    progress: int
+    progress: float

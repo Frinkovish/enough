@@ -66,7 +66,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
       description: body['description'] as String,
       category: _categoryFromBackend(body['category'] as String),
       goalId: body['goal_id'] as String?,
-      goalProgressAmount: body['goal_progress_amount'] as int? ?? 0,
+      goalProgressAmount: (body['goal_progress_amount'] as num?) ?? 0,
     );
   }
 

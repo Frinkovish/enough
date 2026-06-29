@@ -20,8 +20,10 @@ class TaskSuggestion:
 
     # How many units of the chosen goal's own unit this specific task
     # represents (e.g. "Read 5 pages" -> 5 for a goal measured in pages).
+    # Fractional when the task's stated quantity converts to a fraction
+    # of the goal's unit (e.g. "15 minutes" -> 0.25 for an "hours" goal).
     # Always 0 when goal_id is None.
-    goal_progress_amount: int = 0
+    goal_progress_amount: float = 0.0
 
 
 # Static curated suggestions for v1. Swappable later for a remote or

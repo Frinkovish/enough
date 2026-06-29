@@ -26,7 +26,7 @@ class EditGoalSheet extends ConsumerStatefulWidget {
 class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
   final _formKey = GlobalKey<FormState>();
   late final _titleController = TextEditingController(text: widget.goal.title);
-  late final _targetController = TextEditingController(text: widget.goal.target.toString());
+  late final _targetController = TextEditingController(text: widget.goal.target.formatted);
   late final _unitController = TextEditingController(text: widget.goal.unit);
 
   @override
@@ -42,7 +42,7 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
     await ref.read(goalControllerProvider.notifier).updateGoal(
           goalId: widget.goal.id,
           title: _titleController.text.trim(),
-          target: int.parse(_targetController.text.trim()),
+          target: num.parse(_targetController.text.trim()),
           unit: _unitController.text.trim(),
         );
     if (mounted) Navigator.of(context).pop();
@@ -93,10 +93,10 @@ class _EditGoalSheetState extends ConsumerState<EditGoalSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _targetController,
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(hintText: 'Target', labelText: 'Target'),
                       validator: (value) {
-                        final parsed = int.tryParse(value?.trim() ?? '');
+                        final parsed = num.tryParse(value?.trim() ?? '');
                         return (parsed == null || parsed < 1) ? 'Enter a number' : null;
                       },
                     ),

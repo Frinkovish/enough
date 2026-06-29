@@ -8,9 +8,9 @@ from app.domain.task_suggestion import TaskCategory, TaskSuggestion
 class GoalContextIn(BaseModel):
     id: str
     title: str
-    target: int
+    target: float
     unit: str
-    progress: int
+    progress: float
 
     def to_domain(self) -> GoalContext:
         return GoalContext(
@@ -31,7 +31,7 @@ class SuggestionRead(BaseModel):
     description: str
     category: TaskCategory
     goal_id: str | None = None
-    goal_progress_amount: int = 0
+    goal_progress_amount: float = 0.0
 
     @classmethod
     def from_domain(cls, suggestion: TaskSuggestion) -> "SuggestionRead":

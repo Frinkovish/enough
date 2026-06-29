@@ -80,7 +80,7 @@ class _GoalTile extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(child: Text(goal.title, style: Theme.of(context).textTheme.titleSmall)),
                 Text(
-                  '${goal.progress}/${goal.target} ${goal.unit}',
+                  '${goal.progress.formatted}/${goal.target.formatted} ${goal.unit}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 PopupMenuButton<void>(

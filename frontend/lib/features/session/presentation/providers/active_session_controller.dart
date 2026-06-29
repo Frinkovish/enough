@@ -142,8 +142,8 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
       id: 'goal:${goal.id}',
       title: '${goal.title} 1 ${goal.unit}',
       description:
-          'Towards your goal: ${goal.title} ${goal.target} ${goal.unit} '
-          '(${goal.progress}/${goal.target} so far)',
+          'Towards your goal: ${goal.title} ${goal.target.formatted} ${goal.unit} '
+          '(${goal.progress.formatted}/${goal.target.formatted} so far)',
       category: TaskCategory.productivity,
       goalId: goal.id,
       goalProgressAmount: 1,

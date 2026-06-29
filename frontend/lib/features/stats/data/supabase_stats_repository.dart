@@ -57,8 +57,8 @@ class SupabaseStatsRepository implements StatsRepository {
     final goalRows = results[1] as List;
 
     final goalsCompleted = goalRows.where((row) {
-      final target = row['target'] as int;
-      final progress = row['progress'] as int;
+      final target = row['target'] as num;
+      final progress = row['progress'] as num;
       return target > 0 && progress >= target;
     }).length;
 
