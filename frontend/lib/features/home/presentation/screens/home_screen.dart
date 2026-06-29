@@ -16,10 +16,17 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isAdmin = ref.watch(isAdminProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Enough'),
         actions: [
+          if (isAdmin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              tooltip: 'Admin',
+              onPressed: () => context.push(AppRoutes.admin),
+            ),
           IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: 'Profile',

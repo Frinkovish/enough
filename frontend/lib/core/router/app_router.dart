@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/admin/presentation/screens/admin_panel_screen.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
@@ -11,6 +12,7 @@ import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/session/presentation/screens/session_outcome_screen.dart';
 import '../../features/session/presentation/screens/session_screen.dart';
 import '../../features/stats/presentation/screens/insights_screen.dart';
+import '../config/admin_config.dart';
 import '../config/env.dart';
 
 class AppRoutes {
@@ -22,6 +24,7 @@ class AppRoutes {
   static const sessionOutcome = '/session/outcome';
   static const insights = '/insights';
   static const profile = '/profile';
+  static const admin = '/admin';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -38,6 +41,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (!isLoggedIn && !isLoggingIn) return AppRoutes.login;
       if (isLoggedIn && isLoggingIn) return AppRoutes.home;
+
+      final isAdmin = authRepository.currentUser?.email?.toLowerCase() == adminEmail;
+      if (state.matchedLocation == AppRoutes.admin && !isAdmin) return AppRoutes.home;
+
       return null;
     },
     routes: [
@@ -64,6 +71,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.profile,
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.admin,
+        builder: (context, state) => const AdminPanelScreen(),
       ),
     ],
   );
