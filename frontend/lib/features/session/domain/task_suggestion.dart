@@ -1,17 +1,64 @@
-enum TaskCategory { smallTask, physicalActivity, spiritualActivity, productivity }
+enum TaskCategory {
+  reading,
+  physicalMovement,
+  grounding,
+  reflection,
+  breathing,
+  learning,
+  environmentChange,
+  socialConnection,
+}
 
 extension TaskCategoryLabel on TaskCategory {
   String get label {
     switch (this) {
-      case TaskCategory.smallTask:
-        return 'Small task';
-      case TaskCategory.physicalActivity:
-        return 'Physical activity';
-      case TaskCategory.spiritualActivity:
-        return 'Spiritual activity';
-      case TaskCategory.productivity:
-        return 'Productivity';
+      case TaskCategory.reading:
+        return 'Reading';
+      case TaskCategory.physicalMovement:
+        return 'Physical movement';
+      case TaskCategory.grounding:
+        return 'Grounding';
+      case TaskCategory.reflection:
+        return 'Reflection';
+      case TaskCategory.breathing:
+        return 'Breathing';
+      case TaskCategory.learning:
+        return 'Learning';
+      case TaskCategory.environmentChange:
+        return 'Environment change';
+      case TaskCategory.socialConnection:
+        return 'Social connection';
     }
+  }
+
+  /// Snake_case wire value matching the backend's enum — must not be
+  /// confused with [Enum.name], which is camelCase for multi-word values.
+  String get wireValue {
+    switch (this) {
+      case TaskCategory.reading:
+        return 'reading';
+      case TaskCategory.physicalMovement:
+        return 'physical_movement';
+      case TaskCategory.grounding:
+        return 'grounding';
+      case TaskCategory.reflection:
+        return 'reflection';
+      case TaskCategory.breathing:
+        return 'breathing';
+      case TaskCategory.learning:
+        return 'learning';
+      case TaskCategory.environmentChange:
+        return 'environment_change';
+      case TaskCategory.socialConnection:
+        return 'social_connection';
+    }
+  }
+
+  static TaskCategory? fromWire(String? value) {
+    for (final category in TaskCategory.values) {
+      if (category.wireValue == value) return category;
+    }
+    return null;
   }
 }
 

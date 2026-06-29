@@ -7,7 +7,7 @@ import '../../../../core/widgets/responsive_center.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../goals/presentation/widgets/goals_section.dart';
 import '../../../session/presentation/providers/active_session_controller.dart';
-import '../../../session/presentation/widgets/craving_trigger_sheet.dart';
+import '../../../session/presentation/widgets/craving_intake_sheet.dart';
 import '../../../stats/presentation/widgets/stats_summary.dart';
 import '../widgets/craving_button.dart';
 
@@ -63,9 +63,13 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 48),
                   CravingButton(
                     onPressed: () async {
-                      final trigger = await showCravingTriggerSheet(context);
-                      if (trigger == null || !context.mounted) return;
-                      await ref.read(activeSessionControllerProvider.notifier).startSession(trigger);
+                      final intake = await showCravingIntakeSheet(context);
+                      if (intake == null || !context.mounted) return;
+                      await ref.read(activeSessionControllerProvider.notifier).startSession(
+                            intake.trigger,
+                            intake.energy,
+                            intake.intensity,
+                          );
                       if (context.mounted) context.go(AppRoutes.session);
                     },
                   ),

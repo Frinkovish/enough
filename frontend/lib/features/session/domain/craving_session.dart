@@ -1,4 +1,6 @@
+import 'craving_intensity.dart';
 import 'craving_trigger.dart';
+import 'energy_level.dart';
 import 'task_suggestion.dart';
 
 enum SessionOutcome { smoked, didNotSmoke }
@@ -25,6 +27,8 @@ class CravingSession {
     required this.durationSeconds,
     required this.suggestedTask,
     required this.trigger,
+    required this.energyLevel,
+    required this.cravingIntensity,
     this.goalId,
     this.outcome,
     this.completedAt,
@@ -36,6 +40,11 @@ class CravingSession {
   final int durationSeconds;
   final TaskSuggestion suggestedTask;
   final CravingTrigger trigger;
+
+  /// Reported once at the start of the session — capacity/intensity are
+  /// snapshots of how the user felt walking in, not tracked per-refresh.
+  final EnergyLevel energyLevel;
+  final CravingIntensity cravingIntensity;
 
   /// Set when [suggestedTask] was generated to advance a specific
   /// monthly goal, so completing the session can credit that goal.
@@ -52,6 +61,8 @@ class CravingSession {
       durationSeconds: durationSeconds,
       suggestedTask: suggestedTask,
       trigger: trigger,
+      energyLevel: energyLevel,
+      cravingIntensity: cravingIntensity,
       goalId: goalId,
       outcome: outcome ?? this.outcome,
       completedAt: completedAt ?? this.completedAt,
@@ -69,6 +80,8 @@ class CravingSession {
       durationSeconds: durationSeconds,
       suggestedTask: task,
       trigger: trigger,
+      energyLevel: energyLevel,
+      cravingIntensity: cravingIntensity,
       goalId: goalId,
       outcome: outcome,
       completedAt: completedAt,
@@ -82,7 +95,11 @@ class CravingSession {
       'started_at': startedAt.toIso8601String(),
       'duration_seconds': durationSeconds,
       'suggested_task_id': suggestedTask.id,
+      'suggested_task_title': suggestedTask.title,
+      'suggested_task_category': suggestedTask.category.wireValue,
       'trigger': trigger.name,
+      'energy_level': energyLevel.name,
+      'craving_intensity': cravingIntensity.name,
       'goal_id': goalId,
     };
   }

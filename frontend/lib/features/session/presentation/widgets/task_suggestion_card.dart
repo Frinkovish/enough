@@ -67,14 +67,22 @@ class TaskSuggestionCard extends StatelessWidget {
 
   IconData _iconFor(TaskCategory category) {
     switch (category) {
-      case TaskCategory.smallTask:
-        return Icons.check_circle_outline;
-      case TaskCategory.physicalActivity:
+      case TaskCategory.reading:
+        return Icons.menu_book_outlined;
+      case TaskCategory.physicalMovement:
         return Icons.directions_walk;
-      case TaskCategory.spiritualActivity:
+      case TaskCategory.grounding:
+        return Icons.spa_outlined;
+      case TaskCategory.reflection:
+        return Icons.psychology_outlined;
+      case TaskCategory.breathing:
         return Icons.self_improvement;
-      case TaskCategory.productivity:
-        return Icons.task_alt;
+      case TaskCategory.learning:
+        return Icons.school_outlined;
+      case TaskCategory.environmentChange:
+        return Icons.meeting_room_outlined;
+      case TaskCategory.socialConnection:
+        return Icons.favorite_outline;
     }
   }
 }

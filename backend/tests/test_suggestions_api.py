@@ -9,18 +9,21 @@ from tests.conftest import as_user
 
 
 class _StubSuggestionService:
-    async def get_suggestion(self, trigger, goals, local_hour, last_suggestion_title):
+    async def get_suggestion(self, trigger, goals, local_hour, energy, intensity, recent_interventions):
         return TaskSuggestion(
             id="ai:stub",
             title="Stretch",
             description="Two minutes.",
-            category=TaskCategory.PRODUCTIVITY,
+            category=TaskCategory.REFLECTION,
             goal_id=goals[0].id if goals else None,
         )
 
 
 async def test_get_suggestion_requires_auth(client: AsyncClient) -> None:
-    response = await client.post("/api/v1/suggestions", json={"trigger": "stress", "local_hour": 14})
+    response = await client.post(
+        "/api/v1/suggestions",
+        json={"trigger": "stress", "local_hour": 14, "energy": "okay", "intensity": "moderate"},
+    )
 
     assert response.status_code == 401
 
@@ -29,7 +32,10 @@ async def test_get_suggestion_returns_a_suggestion(client: AsyncClient, current_
     as_user(current_user_id)
     app.dependency_overrides[get_suggestion_service] = lambda: _StubSuggestionService()
 
-    response = await client.post("/api/v1/suggestions", json={"trigger": "boredom", "local_hour": 14})
+    response = await client.post(
+        "/api/v1/suggestions",
+        json={"trigger": "boredom", "local_hour": 14, "energy": "okay", "intensity": "moderate"},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -49,6 +55,8 @@ async def test_get_suggestion_includes_goal_id_when_one_is_chosen(
         json={
             "trigger": "boredom",
             "local_hour": 14,
+            "energy": "okay",
+            "intensity": "moderate",
             "goals": [{"id": "goal-1", "title": "Run", "target": 5, "unit": "km", "progress": 1}],
         },
     )

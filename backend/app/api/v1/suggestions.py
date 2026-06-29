@@ -13,7 +13,13 @@ async def get_suggestion(
     service: SuggestionServiceDep,
 ) -> SuggestionRead:
     goals = [goal.to_domain() for goal in payload.goals]
+    recent_interventions = [intervention.to_domain() for intervention in payload.recent_interventions]
     suggestion = await service.get_suggestion(
-        payload.trigger, goals, payload.local_hour, payload.last_suggestion_title
+        payload.trigger,
+        goals,
+        payload.local_hour,
+        payload.energy,
+        payload.intensity,
+        recent_interventions,
     )
     return SuggestionRead.from_domain(suggestion)

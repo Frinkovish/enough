@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 
+from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
+from app.domain.energy_level import EnergyLevel
 from app.domain.goal_context import GoalContext
+from app.domain.recent_intervention import RecentIntervention
 from app.domain.task_suggestion import TaskSuggestion
 
 
@@ -16,5 +19,7 @@ class SuggestionGenerator(ABC):
         trigger: CravingTrigger,
         goals: list[GoalContext],
         local_hour: int,
-        last_suggestion_title: str | None,
+        energy: EnergyLevel,
+        intensity: CravingIntensity,
+        recent_interventions: list[RecentIntervention],
     ) -> TaskSuggestion: ...

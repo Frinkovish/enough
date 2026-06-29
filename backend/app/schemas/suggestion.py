@@ -1,7 +1,10 @@
 from pydantic import BaseModel, Field
 
+from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
+from app.domain.energy_level import EnergyLevel
 from app.domain.goal_context import GoalContext
+from app.domain.recent_intervention import RecentIntervention
 from app.domain.task_suggestion import TaskCategory, TaskSuggestion
 
 
@@ -18,11 +21,21 @@ class GoalContextIn(BaseModel):
         )
 
 
+class RecentInterventionIn(BaseModel):
+    title: str
+    category: TaskCategory
+
+    def to_domain(self) -> RecentIntervention:
+        return RecentIntervention(title=self.title, category=self.category)
+
+
 class SuggestionRequest(BaseModel):
     trigger: CravingTrigger
     goals: list[GoalContextIn] = []
     local_hour: int = Field(ge=0, le=23)
-    last_suggestion_title: str | None = None
+    energy: EnergyLevel
+    intensity: CravingIntensity
+    recent_interventions: list[RecentInterventionIn] = []
 
 
 class SuggestionRead(BaseModel):

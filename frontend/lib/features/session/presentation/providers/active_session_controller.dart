@@ -8,8 +8,11 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../goals/domain/monthly_goal.dart';
 import '../../../goals/presentation/providers/goal_providers.dart';
 import '../../../stats/presentation/providers/stats_providers.dart';
+import '../../domain/craving_intensity.dart';
 import '../../domain/craving_session.dart';
 import '../../domain/craving_trigger.dart';
+import '../../domain/energy_level.dart';
+import '../../domain/recent_intervention.dart';
 import '../../domain/task_suggestion.dart';
 import 'session_providers.dart';
 
@@ -65,12 +68,17 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
     return null;
   }
 
-  Future<void> startSession(CravingTrigger trigger) async {
+  Future<void> startSession(
+    CravingTrigger trigger,
+    EnergyLevel energy,
+    CravingIntensity intensity,
+  ) async {
     final userId = ref.read(currentUserProvider)?.id ?? (Env.devBypassAuth ? _devBypassUserId : null);
     if (userId == null) return;
 
     final activeGoals = await ref.read(goalRepositoryProvider).getActiveGoals();
-    final picked = await _pickTask(trigger, activeGoals);
+    final recentInterventions = await ref.read(sessionRepositoryProvider).getRecentInterventions();
+    final picked = await _pickTask(trigger, activeGoals, energy, intensity, recentInterventions);
 
     final session = CravingSession(
       id: _uuid.v4(),
@@ -79,6 +87,8 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
       durationSeconds: sessionDurationSeconds,
       suggestedTask: picked.task,
       trigger: trigger,
+      energyLevel: energy,
+      cravingIntensity: intensity,
       goalId: picked.goalId,
     );
 
@@ -96,7 +106,14 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
     state = state?.copyWith(isRefreshingSuggestion: true);
     try {
       final activeGoals = await ref.read(goalRepositoryProvider).getActiveGoals();
-      final picked = await _pickTask(session.trigger, activeGoals);
+      final recentInterventions = await ref.read(sessionRepositoryProvider).getRecentInterventions();
+      final picked = await _pickTask(
+        session.trigger,
+        activeGoals,
+        session.energyLevel,
+        session.cravingIntensity,
+        recentInterventions,
+      );
       final updatedSession = session.withSuggestion(picked.task, picked.goalId);
 
       final latest = state;
@@ -105,7 +122,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
 
       unawaited(ref.read(sessionRepositoryProvider).updateSuggestedTask(
             sessionId: updatedSession.id,
-            suggestedTaskId: picked.task.id,
+            task: picked.task,
             goalId: picked.goalId,
           ));
     } catch (_) {
@@ -119,11 +136,17 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
   Future<({TaskSuggestion task, String? goalId})> _pickTask(
     CravingTrigger trigger,
     List<MonthlyGoal> activeGoals,
+    EnergyLevel energy,
+    CravingIntensity intensity,
+    List<RecentIntervention> recentInterventions,
   ) async {
     try {
       final task = await ref.read(suggestionRepositoryProvider).getSuggestion(
             trigger: trigger,
             goals: activeGoals,
+            energy: energy,
+            intensity: intensity,
+            recentInterventions: recentInterventions,
           );
       return (task: task, goalId: task.goalId);
     } catch (_) {
@@ -144,10 +167,27 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
       description:
           'Towards your goal: ${goal.title} ${goal.target.formatted} ${goal.unit} '
           '(${goal.progress.formatted}/${goal.target.formatted} so far)',
-      category: TaskCategory.productivity,
+      category: _categoryForGoalUnit(goal.unit),
       goalId: goal.id,
       goalProgressAmount: 1,
     );
+  }
+
+  /// Best-effort category guess from the goal's unit — only used for
+  /// this deterministic, non-AI fallback, so it doesn't need to be
+  /// perfect, just a reasonable guess for variety-tracking purposes.
+  TaskCategory _categoryForGoalUnit(String unit) {
+    final normalized = unit.toLowerCase();
+    if (normalized.contains('km') || normalized.contains('mile') || normalized.contains('session')) {
+      return TaskCategory.physicalMovement;
+    }
+    if (normalized.contains('page') || normalized.contains('book')) {
+      return TaskCategory.reading;
+    }
+    if (normalized.contains('hour') || normalized.contains('minute')) {
+      return TaskCategory.learning;
+    }
+    return TaskCategory.reflection;
   }
 
   void _startTicker() {

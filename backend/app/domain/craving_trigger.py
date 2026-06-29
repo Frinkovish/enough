@@ -3,7 +3,9 @@ from enum import Enum
 
 class CravingTrigger(str, Enum):
     STRESS = "stress"
+    ANXIETY = "anxiety"
     BOREDOM = "boredom"
-    SOCIAL = "social"
-    HABIT = "habit"
+    SADNESS = "sadness"
+    LONELINESS = "loneliness"
+    FATIGUE = "fatigue"
     OTHER = "other"
