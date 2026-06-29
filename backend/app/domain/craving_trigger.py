@@ -6,6 +6,6 @@ class CravingTrigger(str, Enum):
     ANXIETY = "anxiety"
     BOREDOM = "boredom"
     SADNESS = "sadness"
-    LONELINESS = "loneliness"
+    RESTLESSNESS = "restlessness"
     FATIGUE = "fatigue"
     OTHER = "other"

@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/animated_gradient_background.dart';
 import '../../../../core/widgets/boo_avatar.dart';
+import '../../../../core/widgets/boo_loading.dart';
 import '../../domain/craving_intensity.dart';
 import '../../domain/craving_trigger.dart';
 import '../../domain/energy_level.dart';
-
-typedef CravingIntake = ({CravingTrigger trigger, EnergyLevel energy, CravingIntensity intensity});
+import '../providers/active_session_controller.dart';
 
 /// Boo's alignment for each step — he drifts left to right across the top
 /// of the screen as the three questions progress, like he's walking the
@@ -26,12 +29,14 @@ const _booAssetForStep = [
 
 /// Three quick taps, one question at a time: what triggered this, how
 /// much capacity is there right now, and how strong the urge is. Each
-/// answer immediately advances to the next step — still just three taps
-/// total, but each question gets full visual focus rather than being
-/// crammed into one screen. Shown as a full-screen route (not a bottom
+/// answer immediately advances to the next step. Once all three are
+/// answered, this same screen starts the session (showing a Boo loading
+/// animation while the AI suggestion call is in flight) and navigates to
+/// the session screen itself — so there's no flicker back to the home
+/// screen while waiting. Shown as a full-screen route (not a bottom
 /// sheet) so Boo and the animated background have room to breathe.
-Future<CravingIntake?> showCravingIntakeSheet(BuildContext context) {
-  return Navigator.of(context).push<CravingIntake>(
+Future<void> showCravingIntakeSheet(BuildContext context) {
+  return Navigator.of(context).push<void>(
     PageRouteBuilder(
       fullscreenDialog: true,
       transitionDuration: const Duration(milliseconds: 250),
@@ -43,17 +48,18 @@ Future<CravingIntake?> showCravingIntakeSheet(BuildContext context) {
   );
 }
 
-class _CravingIntakeScreen extends StatefulWidget {
+class _CravingIntakeScreen extends ConsumerStatefulWidget {
   const _CravingIntakeScreen();
 
   @override
-  State<_CravingIntakeScreen> createState() => _CravingIntakeScreenState();
+  ConsumerState<_CravingIntakeScreen> createState() => _CravingIntakeScreenState();
 }
 
-class _CravingIntakeScreenState extends State<_CravingIntakeScreen> {
+class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
   static const _stepCount = 3;
 
   int _step = 0;
+  bool _loading = false;
   CravingTrigger? _trigger;
   EnergyLevel? _energy;
 
@@ -73,12 +79,29 @@ class _CravingIntakeScreenState extends State<_CravingIntakeScreen> {
     });
   }
 
-  void _selectIntensity(CravingIntensity intensity) {
-    Navigator.of(context).pop((trigger: _trigger!, energy: _energy!, intensity: intensity));
+  Future<void> _selectIntensity(CravingIntensity intensity) async {
+    setState(() => _loading = true);
+    await ref.read(activeSessionControllerProvider.notifier).startSession(
+          _trigger!,
+          _energy!,
+          intensity,
+        );
+    if (mounted) context.go(AppRoutes.session);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Stack(
+          children: [
+            Positioned.fill(child: AnimatedGradientBackground()),
+            Center(child: BooLoading(label: 'Finding the right next step…')),
+          ],
+        ),
+      );
+    }
+
     final String question;
     final List<Widget> chips;
     switch (_step) {
