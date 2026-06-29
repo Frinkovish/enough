@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/responsive_center.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../goals/presentation/widgets/goals_section.dart';
@@ -49,6 +50,8 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const GoalsSection(),
                   const SizedBox(height: 32),
+                  const BooAvatar(size: 100, assetPath: 'assets/images/boo_welcome.png'),
+                  const SizedBox(height: 16),
                   Text(
                     'Feeling a craving?',
                     textAlign: TextAlign.center,

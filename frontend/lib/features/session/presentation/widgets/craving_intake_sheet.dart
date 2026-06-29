@@ -17,6 +17,13 @@ const _booAlignmentForStep = [
   Alignment(0.55, -0.5),
 ];
 
+/// Boo holds up the matching number of fingers for each question.
+const _booAssetForStep = [
+  'assets/images/boo_counting_1.png',
+  'assets/images/boo_counting_2.png',
+  'assets/images/boo_counting_3.png',
+];
+
 /// Three quick taps, one question at a time: what triggered this, how
 /// much capacity is there right now, and how strong the urge is. Each
 /// answer immediately advances to the next step — still just three taps
@@ -112,7 +119,7 @@ class _CravingIntakeScreenState extends State<_CravingIntakeScreen> {
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeInOutCubic,
             alignment: _booAlignmentForStep[_step],
-            child: const SafeArea(child: BooAvatar()),
+            child: SafeArea(child: BooAvatar(assetPath: _booAssetForStep[_step])),
           ),
           SafeArea(
             child: Align(

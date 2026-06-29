@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 /// Boo, the app's mascot — a gently bobbing circular avatar cropped from
 /// the source artwork. Reusable anywhere we want Boo present on screen.
 class BooAvatar extends StatefulWidget {
-  const BooAvatar({super.key, this.size = 140});
+  const BooAvatar({super.key, this.size = 140, this.assetPath = 'assets/images/boo.png'});
 
   final double size;
+
+  /// Which Boo pose to show — defaults to the original lantern pose.
+  final String assetPath;
 
   @override
   State<BooAvatar> createState() => _BooAvatarState();
@@ -49,7 +52,14 @@ class _BooAvatarState extends State<BooAvatar> with SingleTickerProviderStateMix
           ],
         ),
         child: ClipOval(
-          child: Image.asset('assets/images/boo.png', fit: BoxFit.cover),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Image.asset(
+              widget.assetPath,
+              key: ValueKey(widget.assetPath),
+              fit: BoxFit.cover,
+            ),
+          ),
         ),
       ),
     );

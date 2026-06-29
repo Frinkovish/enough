@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
+import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/responsive_center.dart';
 import '../../domain/craving_session.dart';
@@ -18,14 +19,20 @@ class SessionOutcomeScreen extends ConsumerStatefulWidget {
 
 class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
   SessionOutcome? _outcome;
+  bool? _taskCompleted;
 
   void _chooseOutcome(SessionOutcome outcome) {
     setState(() => _outcome = outcome);
   }
 
-  Future<void> _chooseTaskCompletion(bool completed) async {
+  void _chooseTaskCompletion(bool completed) {
+    setState(() => _taskCompleted = completed);
+  }
+
+  Future<void> _finish() async {
     final outcome = _outcome;
-    if (outcome == null) return;
+    final completed = _taskCompleted;
+    if (outcome == null || completed == null) return;
     try {
       await ref
           .read(activeSessionControllerProvider.notifier)
@@ -50,14 +57,24 @@ class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
   Widget build(BuildContext context) {
     final task = ref.read(activeSessionControllerProvider)?.session.suggestedTask;
 
+    Widget step;
+    if (_outcome == null) {
+      step = _SmokeQuestion(onChoose: _chooseOutcome);
+    } else if (_taskCompleted == null) {
+      step = _TaskQuestion(task: task, onChoose: _chooseTaskCompletion);
+    } else {
+      // Celebrate any partial win — resisting the craving or doing the
+      // task both count, even if the other one didn't go as hoped.
+      final isWin = _outcome == SessionOutcome.didNotSmoke || _taskCompleted == true;
+      step = _ReactionStep(isWin: isWin, onContinue: _finish);
+    }
+
     return Scaffold(
       body: SafeArea(
         child: ResponsiveCenter(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: _outcome == null
-                ? _SmokeQuestion(onChoose: _chooseOutcome)
-                : _TaskQuestion(task: task, onChoose: _chooseTaskCompletion),
+            child: step,
           ),
         ),
       ),
@@ -137,6 +154,43 @@ class _TaskQuestion extends StatelessWidget {
           onPressed: () => onChoose(false),
           child: const Text('Not this time'),
         ),
+      ],
+    );
+  }
+}
+
+class _ReactionStep extends StatelessWidget {
+  const _ReactionStep({required this.isWin, required this.onContinue});
+
+  final bool isWin;
+  final VoidCallback onContinue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        BooAvatar(
+          size: 160,
+          assetPath: isWin ? 'assets/images/boo_happy.jpg' : 'assets/images/boo_sad.png',
+        ),
+        const SizedBox(height: 24),
+        Text(
+          isWin ? 'Nice one!' : 'That happens sometimes.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          isWin
+              ? "Boo's proud of you — every one of these adds up."
+              : "Boo's still on your side. Twenty minutes from now is another chance.",
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 40),
+        PrimaryButton(label: 'Continue', onPressed: onContinue),
       ],
     );
   }
