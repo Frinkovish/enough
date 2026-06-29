@@ -42,4 +42,4 @@ services:
       - key: SUPABASE_ANON_KEY
         value: sb_publishable_LV-Jk2idWA1IgTB8iz46Bw_VY1kMx0R
       - key: BACKEND_BASE_URL
-        value: https://enough-backend.onrender.com
+        value: https://enough-backend-xzu9.onrender.com
