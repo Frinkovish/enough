@@ -14,6 +14,7 @@ class _StubSuggestionService:
             id="ai:stub",
             title="Stretch",
             description="Two minutes.",
+            reasoning="Your energy is steady, so something gentle fits.",
             category=TaskCategory.REFLECTION,
             goal_id=goals[0].id if goals else None,
         )
@@ -41,6 +42,7 @@ async def test_get_suggestion_returns_a_suggestion(client: AsyncClient, current_
     body = response.json()
     assert body["title"] == "Stretch"
     assert body["id"] == "ai:stub"
+    assert body["reasoning"] == "Your energy is steady, so something gentle fits."
     assert body["goal_id"] is None
 
 
