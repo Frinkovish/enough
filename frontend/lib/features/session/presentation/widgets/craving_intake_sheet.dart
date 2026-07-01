@@ -171,7 +171,13 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
-                        const SizedBox(width: 40),
+                        SizedBox(
+                          width: 40,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
