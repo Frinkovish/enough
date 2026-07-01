@@ -42,7 +42,7 @@ async def test_generate_returns_parsed_suggestion() -> None:
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion.title == "Stretch"
     assert suggestion.description == "Two minutes, slow."
@@ -60,7 +60,7 @@ async def test_generate_defaults_reasoning_when_missing() -> None:
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion.reasoning  # falls back to a non-empty default, never blank
 
@@ -73,7 +73,7 @@ async def test_generate_falls_back_to_reflection_category_when_missing_or_invali
     )
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion.category == TaskCategory.REFLECTION
 
@@ -83,7 +83,7 @@ async def test_generate_raises_on_http_error() -> None:
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
-        await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+        await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
 
 async def test_generate_raises_on_malformed_json_content() -> None:
@@ -91,7 +91,7 @@ async def test_generate_raises_on_malformed_json_content() -> None:
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
-        await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+        await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
 
 async def test_generate_raises_on_empty_fields() -> None:
@@ -101,7 +101,7 @@ async def test_generate_raises_on_empty_fields() -> None:
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
-        await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+        await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
 
 async def test_generate_raises_when_output_is_empty() -> None:
@@ -109,7 +109,7 @@ async def test_generate_raises_when_output_is_empty() -> None:
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
 
     with pytest.raises(AISuggestionUnavailableError):
-        await generator.generate(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+        await generator.generate(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
 
 async def test_generate_includes_goal_list_in_prompt_and_returns_chosen_goal_id() -> None:
@@ -236,7 +236,7 @@ async def test_generate_converts_minutes_to_hours_for_an_hours_goal() -> None:
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
     goals = [GoalContext(id="dbt-goal", title="Learn DBT", target=5, unit="hours", progress=1)]
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 16, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, goals, 16, _ENERGY, _INTENSITY, [])
 
     assert suggestion.goal_id == "dbt-goal"
     assert suggestion.goal_progress_amount == 0.25
@@ -284,7 +284,7 @@ async def test_generate_blocks_credit_when_claimed_amount_contradicts_task_text(
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
     goals = [GoalContext(id="dbt-goal", title="Learn DBT", target=5, unit="hours", progress=0)]
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 16, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, goals, 16, _ENERGY, _INTENSITY, [])
 
     assert suggestion.goal_id is None
     assert suggestion.goal_progress_amount == 0
@@ -310,7 +310,7 @@ async def test_generate_does_not_credit_goal_when_no_quantity_derivable_from_tex
     generator = AzureOpenAISuggestionGenerator("https://example.test", "key", transport=transport)
     goals = [GoalContext(id="read-goal", title="Read", target=300, unit="pages", progress=0)]
 
-    suggestion = await generator.generate(CravingTrigger.STRESS, goals, 14, _ENERGY, _INTENSITY, [])
+    suggestion = await generator.generate(CravingTrigger.HABIT, goals, 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion.goal_id is None
     assert suggestion.goal_progress_amount == 0

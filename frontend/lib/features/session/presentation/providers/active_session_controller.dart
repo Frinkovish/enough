@@ -140,6 +140,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
     CravingIntensity intensity,
     List<RecentIntervention> recentInterventions,
   ) async {
+    final locationContext = ref.read(locationContextProvider);
     try {
       final task = await ref.read(suggestionRepositoryProvider).getSuggestion(
             trigger: trigger,
@@ -147,6 +148,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
             energy: energy,
             intensity: intensity,
             recentInterventions: recentInterventions,
+            locationContext: locationContext,
           );
       return (task: task, goalId: task.goalId);
     } catch (_) {

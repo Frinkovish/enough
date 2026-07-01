@@ -2,6 +2,7 @@ import '../../goals/domain/monthly_goal.dart';
 import 'craving_intensity.dart';
 import 'craving_trigger.dart';
 import 'energy_level.dart';
+import 'location_context.dart';
 import 'recent_intervention.dart';
 import 'task_suggestion.dart';
 
@@ -20,5 +21,6 @@ abstract class SuggestionRepository {
     required EnergyLevel energy,
     required CravingIntensity intensity,
     required List<RecentIntervention> recentInterventions,
+    LocationContext? locationContext,
   });
 }

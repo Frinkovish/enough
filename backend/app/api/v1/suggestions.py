@@ -21,5 +21,6 @@ async def get_suggestion(
         payload.energy,
         payload.intensity,
         recent_interventions,
+        payload.location_context,
     )
     return SuggestionRead.from_domain(suggestion)

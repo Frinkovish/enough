@@ -1,10 +1,10 @@
-enum CravingTrigger { stress, anxiety, boredom, sadness, restlessness, fatigue, other }
+enum CravingTrigger { habit, anxiety, boredom, sadness, restlessness, fatigue, other }
 
 extension CravingTriggerLabel on CravingTrigger {
   String get label {
     switch (this) {
-      case CravingTrigger.stress:
-        return 'Stress';
+      case CravingTrigger.habit:
+        return 'Habit';
       case CravingTrigger.anxiety:
         return 'Anxiety';
       case CravingTrigger.boredom:

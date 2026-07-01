@@ -9,6 +9,7 @@ from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
 from app.domain.energy_level import EnergyLevel
 from app.domain.goal_context import GoalContext
+from app.domain.location_context import LocationContext
 from app.domain.recent_intervention import RecentIntervention
 from app.domain.suggestion_generator import AISuggestionUnavailableError, SuggestionGenerator
 from app.domain.task_suggestion import TaskCategory, TaskSuggestion
@@ -46,6 +47,9 @@ _SYSTEM_PROMPT = (
     "recently. "
     "It must fit their current local hour — avoid jogging, loud exercise, or going outside very "
     "late at night or very early morning; prefer quiet, indoor actions then. "
+    "If their location (home or work) is provided, respect it strictly: at work, never suggest "
+    "going outside, running, or anything that requires leaving the building — only desk-friendly "
+    "or indoor tasks; at home, outdoor and physical activities are fair game. "
     "You may be given a list of the person's active goals, each with an id and a unit (e.g. km, "
     "pages, hours, sessions). If — and only if — one of them genuinely fits this exact moment, "
     "make the suggestion contribute to it: state a real, concrete quantity with its own natural "
@@ -77,6 +81,7 @@ def _build_user_prompt(
     energy: EnergyLevel,
     intensity: CravingIntensity,
     recent_interventions: list[RecentIntervention],
+    location_context: LocationContext | None = None,
 ) -> str:
     parts = [
         f"Their craving was triggered by: {trigger.value}.",
@@ -84,6 +89,16 @@ def _build_user_prompt(
         f"Their current energy/capacity is: {energy.value}.",
         f"Their craving intensity right now is: {intensity.value}.",
     ]
+    if location_context == LocationContext.WORK:
+        parts.append(
+            "They are currently at work — only suggest tasks that can be done at or near a desk, "
+            "indoors, without leaving the building."
+        )
+    elif location_context == LocationContext.HOME:
+        parts.append(
+            "They are currently at home — outdoor activities, going for a short walk, "
+            "or using more physical space are all options."
+        )
     if goals:
         goal_lines = "; ".join(
             f'id={goal.id}: "{goal.title}" ({format_number(goal.progress)}/'
@@ -143,8 +158,9 @@ class AzureOpenAISuggestionGenerator(SuggestionGenerator):
         energy: EnergyLevel,
         intensity: CravingIntensity,
         recent_interventions: list[RecentIntervention],
+        location_context: LocationContext | None = None,
     ) -> TaskSuggestion:
-        user_prompt = _build_user_prompt(trigger, goals, local_hour, energy, intensity, recent_interventions)
+        user_prompt = _build_user_prompt(trigger, goals, local_hour, energy, intensity, recent_interventions, location_context)
         logger.info(
             "Suggestion prompt: goals=%r energy=%s intensity=%s recent_interventions=%r "
             "local_hour=%s | %s",

@@ -6,9 +6,14 @@ import '../../data/backend_suggestion_repository.dart';
 import '../../data/local_noop_session_repository.dart';
 import '../../data/local_task_suggestion_repository.dart';
 import '../../data/supabase_session_repository.dart';
+import '../../domain/location_context.dart';
 import '../../domain/session_repository.dart';
 import '../../domain/suggestion_repository.dart';
 import '../../domain/task_suggestion_repository.dart';
+
+/// Persists for the app session — home or work context drives which
+/// activities the AI will suggest (e.g. no outdoor tasks at work).
+final locationContextProvider = StateProvider<LocationContext>((ref) => LocationContext.home);
 
 final taskSuggestionRepositoryProvider = Provider<TaskSuggestionRepository>((ref) {
   return LocalTaskSuggestionRepository();

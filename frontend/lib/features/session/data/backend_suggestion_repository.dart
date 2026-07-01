@@ -7,6 +7,7 @@ import '../../goals/domain/monthly_goal.dart';
 import '../domain/craving_intensity.dart';
 import '../domain/craving_trigger.dart';
 import '../domain/energy_level.dart';
+import '../domain/location_context.dart';
 import '../domain/recent_intervention.dart';
 import '../domain/suggestion_repository.dart';
 import '../domain/task_suggestion.dart';
@@ -24,6 +25,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
     required EnergyLevel energy,
     required CravingIntensity intensity,
     required List<RecentIntervention> recentInterventions,
+    LocationContext? locationContext,
   }) async {
     final token = _client.auth.currentSession?.accessToken;
     if (token == null) {
@@ -42,6 +44,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
             'local_hour': DateTime.now().hour,
             'energy': energy.name,
             'intensity': intensity.name,
+            if (locationContext != null) 'location_context': locationContext.wireValue,
             'recent_interventions': recentInterventions
                 .map((item) => {'title': item.title, 'category': item.category.wireValue})
                 .toList(),

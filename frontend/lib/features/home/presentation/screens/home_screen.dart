@@ -7,6 +7,8 @@ import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/responsive_center.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../goals/presentation/widgets/goals_section.dart';
+import '../../../session/domain/location_context.dart';
+import '../../../session/presentation/providers/session_providers.dart';
 import '../../../session/presentation/widgets/craving_intake_sheet.dart';
 import '../../../stats/presentation/widgets/stats_summary.dart';
 import '../widgets/craving_button.dart';
@@ -17,6 +19,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdmin = ref.watch(isAdminProvider);
+    final locationContext = ref.watch(locationContextProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Enough'),
@@ -46,6 +49,25 @@ class HomeScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 children: [
+                  SegmentedButton<LocationContext>(
+                    segments: const [
+                      ButtonSegment(
+                        value: LocationContext.home,
+                        icon: Icon(Icons.home_outlined),
+                        label: Text('Home'),
+                      ),
+                      ButtonSegment(
+                        value: LocationContext.work,
+                        icon: Icon(Icons.work_outline),
+                        label: Text('Work'),
+                      ),
+                    ],
+                    selected: {locationContext},
+                    onSelectionChanged: (selection) => ref
+                        .read(locationContextProvider.notifier)
+                        .state = selection.first,
+                  ),
+                  const SizedBox(height: 8),
                   const StatsSummary(),
                   Align(
                     alignment: Alignment.centerRight,

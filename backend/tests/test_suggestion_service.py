@@ -24,6 +24,7 @@ class _FakeGenerator(SuggestionGenerator):
         energy: EnergyLevel,
         intensity: CravingIntensity,
         recent_interventions: list[RecentIntervention],
+        location_context=None,
     ) -> TaskSuggestion:
         if self._error is not None:
             raise self._error
@@ -34,7 +35,7 @@ class _FakeGenerator(SuggestionGenerator):
 async def test_no_generator_configured_falls_back_to_static_pool() -> None:
     service = SuggestionService(None)
 
-    suggestion = await service.get_suggestion(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await service.get_suggestion(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion is not None
 
@@ -43,7 +44,7 @@ async def test_generator_failure_falls_back_to_static_pool() -> None:
     generator = _FakeGenerator(error=RuntimeError("AI is down"))
     service = SuggestionService(generator)
 
-    suggestion = await service.get_suggestion(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await service.get_suggestion(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion is not None
     assert not suggestion.id.startswith("ai:")
@@ -56,6 +57,6 @@ async def test_generator_success_is_used() -> None:
     generator = _FakeGenerator(result=ai_suggestion)
     service = SuggestionService(generator)
 
-    suggestion = await service.get_suggestion(CravingTrigger.STRESS, [], 14, _ENERGY, _INTENSITY, [])
+    suggestion = await service.get_suggestion(CravingTrigger.HABIT, [], 14, _ENERGY, _INTENSITY, [])
 
     assert suggestion == ai_suggestion

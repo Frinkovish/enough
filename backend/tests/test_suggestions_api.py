@@ -9,7 +9,7 @@ from tests.conftest import as_user
 
 
 class _StubSuggestionService:
-    async def get_suggestion(self, trigger, goals, local_hour, energy, intensity, recent_interventions):
+    async def get_suggestion(self, trigger, goals, local_hour, energy, intensity, recent_interventions, location_context=None):
         return TaskSuggestion(
             id="ai:stub",
             title="Stretch",
@@ -23,7 +23,7 @@ class _StubSuggestionService:
 async def test_get_suggestion_requires_auth(client: AsyncClient) -> None:
     response = await client.post(
         "/api/v1/suggestions",
-        json={"trigger": "stress", "local_hour": 14, "energy": "okay", "intensity": "moderate"},
+        json={"trigger": "habit", "local_hour": 14, "energy": "okay", "intensity": "moderate"},
     )
 
     assert response.status_code == 401
