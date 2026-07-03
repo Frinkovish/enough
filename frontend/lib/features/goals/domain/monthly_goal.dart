@@ -27,7 +27,7 @@ class MonthlyGoal {
 
   static DateTime monthKeyFor(DateTime date) => DateTime(date.year, date.month, 1);
 
-  static const maxActiveGoals = 5;
+  static const defaultMaxActiveGoals = 5;
 }
 
 extension FormattedNum on num {

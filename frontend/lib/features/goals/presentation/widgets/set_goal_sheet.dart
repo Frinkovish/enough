@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/settings/app_settings.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../domain/goal_repository.dart';
 import '../providers/goal_providers.dart';
@@ -95,8 +96,9 @@ class _SetGoalSheetState extends ConsumerState<SetGoalSheet> {
   }
 
   String _friendlyError(Object error) {
+    final maxGoals = ref.read(maxGoalsProvider);
     return error is TooManyActiveGoalsError
-        ? "You've reached the limit of 5 active goals."
+        ? "You've reached the limit of $maxGoals active goals."
         : 'Something went wrong. Please try again.';
   }
 }

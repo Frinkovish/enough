@@ -48,6 +48,7 @@ class SupabaseGoalRepository implements GoalRepository {
     required String title,
     required num target,
     required String unit,
+    int maxGoals = MonthlyGoal.defaultMaxActiveGoals,
   }) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) {
@@ -55,7 +56,7 @@ class SupabaseGoalRepository implements GoalRepository {
     }
 
     final activeCount = (await getActiveGoals()).length;
-    if (activeCount >= MonthlyGoal.maxActiveGoals) {
+    if (activeCount >= maxGoals) {
       throw TooManyActiveGoalsError();
     }
 

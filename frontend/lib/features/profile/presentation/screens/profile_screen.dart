@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/settings/app_settings.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/user_profile.dart';
@@ -126,11 +127,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildForm(BuildContext context, String email, bool isSaving) {
+    final maxGoals = ref.watch(maxGoalsProvider);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text('Goals', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: Text('Active goal limit', style: Theme.of(context).textTheme.bodyMedium)),
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 3, label: Text('3')),
+                  ButtonSegment(value: 5, label: Text('5')),
+                  ButtonSegment(value: 7, label: Text('7')),
+                  ButtonSegment(value: 10, label: Text('10')),
+                ],
+                selected: {maxGoals},
+                onSelectionChanged: (selection) =>
+                    ref.read(maxGoalsProvider.notifier).set(selection.first),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,

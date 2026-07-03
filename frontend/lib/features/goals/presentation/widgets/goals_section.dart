@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/settings/app_settings.dart';
 import '../../domain/monthly_goal.dart';
 import '../providers/goal_providers.dart';
 import 'edit_goal_sheet.dart';
 import 'set_goal_sheet.dart';
 
-/// Shows up to [MonthlyGoal.maxActiveGoals] active goals, each with its
-/// own progress and edit/delete actions.
 class GoalsSection extends ConsumerWidget {
   const GoalsSection({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goals = ref.watch(activeGoalsProvider);
+    final maxGoals = ref.watch(maxGoalsProvider);
 
     return goals.when(
       data: (goals) {
-        final canAddMore = goals.length < MonthlyGoal.maxActiveGoals;
+        final canAddMore = goals.length < maxGoals;
         return Column(
           children: [
             for (final goal in goals) _GoalTile(goal: goal),

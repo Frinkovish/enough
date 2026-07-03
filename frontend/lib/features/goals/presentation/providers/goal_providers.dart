@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/env.dart';
+import '../../../../core/settings/app_settings.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/backend_goal_parser_repository.dart';
 import '../../data/supabase_goal_repository.dart';
@@ -32,10 +33,12 @@ class GoalController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final parsed = await _parse(description);
+      final maxGoals = ref.read(maxGoalsProvider);
       await ref.read(goalRepositoryProvider).createGoal(
             title: parsed.title,
             target: parsed.target,
             unit: parsed.unit,
+            maxGoals: maxGoals,
           );
       ref.invalidate(activeGoalsProvider);
     });
