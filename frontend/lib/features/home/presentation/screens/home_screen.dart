@@ -72,16 +72,6 @@ class HomeScreen extends ConsumerWidget {
                         .read(locationContextProvider.notifier)
                         .state = selection.first,
                   ),
-                  const SizedBox(height: 8),
-                  const StatsSummary(),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push(AppRoutes.insights),
-                      child: const Text('View your patterns'),
-                    ),
-                  ),
-                  const GoalsSection(),
                   const SizedBox(height: 32),
                   const BooAvatar(size: 100, assetPath: 'assets/images/boo_welcome.png'),
                   const SizedBox(height: 16),
@@ -96,10 +86,20 @@ class HomeScreen extends ConsumerWidget {
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 24),
                   CravingButton(
                     onPressed: () => showCravingIntakeSheet(context),
                   ),
+                  const SizedBox(height: 32),
+                  const StatsSummary(),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => context.push(AppRoutes.insights),
+                      child: const Text('View your patterns'),
+                    ),
+                  ),
+                  const GoalsSection(),
                 ],
               ),
             ),

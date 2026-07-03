@@ -70,6 +70,14 @@ class GoalController extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> logProgress(String goalId, num amount) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(goalRepositoryProvider).incrementProgress(goalId, amount: amount);
+      ref.invalidate(activeGoalsProvider);
+    });
+  }
+
   Future<void> deleteGoal(String goalId) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {

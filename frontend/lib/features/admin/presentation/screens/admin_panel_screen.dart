@@ -71,6 +71,16 @@ class _IdeaTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
+    final chip = Chip(
+      label: Text(idea.type.label),
+      backgroundColor:
+          idea.type == IdeaType.fix ? colorScheme.errorContainer : colorScheme.primaryContainer,
+      labelStyle: TextStyle(
+        color: idea.type == IdeaType.fix ? colorScheme.onErrorContainer : colorScheme.onPrimaryContainer,
+        fontWeight: FontWeight.bold,
+        fontSize: 11,
+      ),
+    );
     return Dismissible(
       key: ValueKey(idea.id),
       direction: DismissDirection.endToStart,
@@ -91,15 +101,26 @@ class _IdeaTile extends ConsumerWidget {
           style: idea.isDone ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
         ),
         subtitle: idea.description.isEmpty ? null : Text(idea.description),
-        trailing: Chip(
-          label: Text(idea.type.label),
-          backgroundColor:
-              idea.type == IdeaType.fix ? colorScheme.errorContainer : colorScheme.primaryContainer,
-          labelStyle: TextStyle(
-            color: idea.type == IdeaType.fix ? colorScheme.onErrorContainer : colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.bold,
-            fontSize: 11,
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            chip,
+            PopupMenuButton<void>(
+              icon: const Icon(Icons.more_vert, size: 18),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  onTap: () => showEditIdeaSheet(context, idea),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.edit_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Edit'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

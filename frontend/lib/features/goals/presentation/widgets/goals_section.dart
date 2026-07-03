@@ -43,6 +43,39 @@ class _GoalTile extends ConsumerWidget {
 
   final MonthlyGoal goal;
 
+  Future<void> _logProgress(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final amount = await showDialog<num>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Log progress (${goal.unit})'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(hintText: 'Amount in ${goal.unit}'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final parsed = num.tryParse(controller.text.trim());
+              if (parsed != null && parsed > 0) Navigator.of(context).pop(parsed);
+            },
+            child: const Text('Log'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (amount != null) {
+      await ref.read(goalControllerProvider.notifier).logProgress(goal.id, amount);
+    }
+  }
+
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -86,6 +119,16 @@ class _GoalTile extends ConsumerWidget {
                 PopupMenuButton<void>(
                   icon: const Icon(Icons.more_vert, size: 18),
                   itemBuilder: (context) => [
+                    PopupMenuItem(
+                      onTap: () => _logProgress(context, ref),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.add_chart_outlined, size: 18),
+                          SizedBox(width: 8),
+                          Text('Log progress'),
+                        ],
+                      ),
+                    ),
                     PopupMenuItem(
                       onTap: () => showEditGoalSheet(context, goal),
                       child: const Row(

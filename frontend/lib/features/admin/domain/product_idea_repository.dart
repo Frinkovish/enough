@@ -11,5 +11,12 @@ abstract class ProductIdeaRepository {
 
   Future<void> setDone(String id, bool isDone);
 
+  Future<void> updateIdea({
+    required String id,
+    required IdeaType type,
+    required String title,
+    String description = '',
+  });
+
   Future<void> deleteIdea(String id);
 }

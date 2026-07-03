@@ -29,6 +29,24 @@ class AdminIdeasController extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateIdea({
+    required String id,
+    required IdeaType type,
+    required String title,
+    String description = '',
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(productIdeaRepositoryProvider).updateIdea(
+            id: id,
+            type: type,
+            title: title,
+            description: description,
+          );
+      ref.invalidate(productIdeasProvider);
+    });
+  }
+
   Future<void> toggleDone(ProductIdea idea) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {

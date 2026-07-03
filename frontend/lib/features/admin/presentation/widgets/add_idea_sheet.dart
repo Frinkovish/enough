@@ -10,22 +10,43 @@ Future<void> showAddIdeaSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (context) => const AddIdeaSheet(),
+    builder: (context) => const _IdeaSheet(),
   );
 }
 
-class AddIdeaSheet extends ConsumerStatefulWidget {
+Future<void> showEditIdeaSheet(BuildContext context, ProductIdea idea) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (context) => _IdeaSheet(idea: idea),
+  );
+}
+
+// ignore: unused_element — kept for external callers via showAddIdeaSheet / showEditIdeaSheet
+class AddIdeaSheet extends StatelessWidget {
   const AddIdeaSheet({super.key});
 
   @override
-  ConsumerState<AddIdeaSheet> createState() => _AddIdeaSheetState();
+  Widget build(BuildContext context) => const _IdeaSheet();
 }
 
-class _AddIdeaSheetState extends ConsumerState<AddIdeaSheet> {
+class _IdeaSheet extends ConsumerStatefulWidget {
+  const _IdeaSheet({this.idea});
+
+  final ProductIdea? idea;
+
+  @override
+  ConsumerState<_IdeaSheet> createState() => _IdeaSheetState();
+}
+
+class _IdeaSheetState extends ConsumerState<_IdeaSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  IdeaType _type = IdeaType.newFeature;
+  late final _titleController = TextEditingController(text: widget.idea?.title ?? '');
+  late final _descriptionController = TextEditingController(text: widget.idea?.description ?? '');
+  late IdeaType _type = widget.idea?.type ?? IdeaType.newFeature;
+
+  bool get _isEdit => widget.idea != null;
 
   @override
   void dispose() {
@@ -36,11 +57,21 @@ class _AddIdeaSheetState extends ConsumerState<AddIdeaSheet> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    await ref.read(adminIdeasControllerProvider.notifier).addIdea(
-          type: _type,
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
-        );
+    final notifier = ref.read(adminIdeasControllerProvider.notifier);
+    if (_isEdit) {
+      await notifier.updateIdea(
+        id: widget.idea!.id,
+        type: _type,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+      );
+    } else {
+      await notifier.addIdea(
+        type: _type,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+      );
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -65,7 +96,11 @@ class _AddIdeaSheetState extends ConsumerState<AddIdeaSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('New idea', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                _isEdit ? 'Edit idea' : 'New idea',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 16),
               SegmentedButton<IdeaType>(
                 segments: const [
@@ -78,7 +113,7 @@ class _AddIdeaSheetState extends ConsumerState<AddIdeaSheet> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                autofocus: true,
+                autofocus: !_isEdit,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(labelText: 'Title'),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,

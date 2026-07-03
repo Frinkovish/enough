@@ -50,6 +50,20 @@ class SupabaseProductIdeaRepository implements ProductIdeaRepository {
   }
 
   @override
+  Future<void> updateIdea({
+    required String id,
+    required IdeaType type,
+    required String title,
+    String description = '',
+  }) async {
+    await _client.from(_table).update({
+      'type': type.wireValue,
+      'title': title,
+      'description': description,
+    }).eq('id', id);
+  }
+
+  @override
   Future<void> deleteIdea(String id) async {
     await _client.from(_table).delete().eq('id', id);
   }

@@ -41,12 +41,12 @@ class ProductIdea {
   final bool isDone;
   final DateTime createdAt;
 
-  ProductIdea copyWith({bool? isDone}) {
+  ProductIdea copyWith({IdeaType? type, String? title, String? description, bool? isDone}) {
     return ProductIdea(
       id: id,
-      type: type,
-      title: title,
-      description: description,
+      type: type ?? this.type,
+      title: title ?? this.title,
+      description: description ?? this.description,
       isDone: isDone ?? this.isDone,
       createdAt: createdAt,
     );
