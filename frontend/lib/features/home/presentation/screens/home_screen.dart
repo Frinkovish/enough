@@ -61,6 +61,11 @@ class HomeScreen extends ConsumerWidget {
                         icon: Icon(Icons.work_outline),
                         label: Text('Work'),
                       ),
+                      ButtonSegment(
+                        value: LocationContext.outside,
+                        icon: Icon(Icons.park_outlined),
+                        label: Text('Outside'),
+                      ),
                     ],
                     selected: {locationContext},
                     onSelectionChanged: (selection) => ref

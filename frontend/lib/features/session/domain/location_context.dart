@@ -1,4 +1,4 @@
-enum LocationContext { home, work }
+enum LocationContext { home, work, outside }
 
 extension LocationContextLabel on LocationContext {
   String get label {
@@ -7,6 +7,8 @@ extension LocationContextLabel on LocationContext {
         return 'Home';
       case LocationContext.work:
         return 'Work';
+      case LocationContext.outside:
+        return 'Outside';
     }
   }
 
@@ -16,6 +18,8 @@ extension LocationContextLabel on LocationContext {
         return 'home';
       case LocationContext.work:
         return 'work';
+      case LocationContext.outside:
+        return 'outside';
     }
   }
 }
