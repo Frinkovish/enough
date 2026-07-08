@@ -18,6 +18,18 @@ class BackendSuggestionRepository implements SuggestionRepository {
   final String baseUrl;
   final SupabaseClient _client;
 
+  /// Pings /health to wake a sleeping Render instance before the user
+  /// finishes the intake questions. Fire-and-forget — never throws.
+  @override
+  Future<void> warmUp() async {
+    try {
+      await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
+
+  /// Retries up to 3 times (2-second gap) on network/timeout failures so a
+  /// Render cold-start doesn't instantly produce the local fallback. Server
+  /// errors (non-200 status) are not retried — they indicate a real problem.
   @override
   Future<TaskSuggestion> getSuggestion({
     required CravingTrigger trigger,
@@ -32,41 +44,57 @@ class BackendSuggestionRepository implements SuggestionRepository {
       throw StateError('No Supabase access token available for backend suggestion call.');
     }
 
-    final response = await http
-        .post(
-          Uri.parse('$baseUrl/api/v1/suggestions'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({
-            'trigger': trigger.name,
-            'local_hour': DateTime.now().hour,
-            'energy': energy.name,
-            'intensity': intensity.name,
-            if (locationContext != null) 'location_context': locationContext.wireValue,
-            'recent_interventions': recentInterventions
-                .map((item) => {'title': item.title, 'category': item.category.wireValue})
-                .toList(),
-            'goals': goals
-                .map((goal) => {
-                      'id': goal.id,
-                      'title': goal.title,
-                      'target': goal.target,
-                      'unit': goal.unit,
-                      'progress': goal.progress,
-                    })
-                .toList(),
-          }),
-        )
-        .timeout(const Duration(seconds: 8));
+    final body = jsonEncode({
+      'trigger': trigger.name,
+      'local_hour': DateTime.now().hour,
+      'energy': energy.name,
+      'intensity': intensity.name,
+      if (locationContext != null) 'location_context': locationContext.wireValue,
+      'recent_interventions': recentInterventions
+          .map((item) => {'title': item.title, 'category': item.category.wireValue})
+          .toList(),
+      'goals': goals
+          .map((goal) => {
+                'id': goal.id,
+                'title': goal.title,
+                'target': goal.target,
+                'unit': goal.unit,
+                'progress': goal.progress,
+              })
+          .toList(),
+    });
 
-    if (response.statusCode != 200) {
-      throw Exception('Suggestion request failed with status ${response.statusCode}');
+    Exception? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await Future.delayed(const Duration(seconds: 2));
+      http.Response? response;
+      try {
+        response = await http
+            .post(
+              Uri.parse('$baseUrl/api/v1/suggestions'),
+              headers: {
+                'Authorization': 'Bearer $token',
+                'Content-Type': 'application/json',
+              },
+              body: body,
+            )
+            .timeout(const Duration(seconds: 15));
+
+        if (response.statusCode != 200) {
+          throw Exception('Suggestion request failed with status ${response.statusCode}');
+        }
+
+        return _parse(response.body);
+      } on Exception catch (e) {
+        if (response != null) rethrow; // server replied but with an error — don't retry
+        lastError = e;
+      }
     }
+    throw lastError!;
+  }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-
+  TaskSuggestion _parse(String responseBody) {
+    final body = jsonDecode(responseBody) as Map<String, dynamic>;
     return TaskSuggestion(
       id: body['id'] as String,
       title: body['title'] as String,

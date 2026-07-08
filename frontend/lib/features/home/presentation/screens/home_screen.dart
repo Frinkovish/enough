@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'dart:async';
+
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/responsive_center.dart';
@@ -88,7 +90,10 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
                   CravingButton(
-                    onPressed: () => showCravingIntakeSheet(context),
+                    onPressed: () {
+                      unawaited(ref.read(suggestionRepositoryProvider).warmUp());
+                      showCravingIntakeSheet(context);
+                    },
                   ),
                   const SizedBox(height: 32),
                   const StatsSummary(),

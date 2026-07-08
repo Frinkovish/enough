@@ -15,6 +15,10 @@ import 'task_suggestion.dart';
 /// one, if any, it chose. [recentInterventions] lets it vary its category
 /// choice across several past suggestions, not just the most recent one.
 abstract class SuggestionRepository {
+  /// Pings the backend so a sleeping server starts waking up before the
+  /// user finishes the intake questions. Fire-and-forget — never throws.
+  Future<void> warmUp();
+
   Future<TaskSuggestion> getSuggestion({
     required CravingTrigger trigger,
     required List<MonthlyGoal> goals,
