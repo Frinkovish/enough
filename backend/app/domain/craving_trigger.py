@@ -2,10 +2,11 @@ from enum import Enum
 
 
 class CravingTrigger(str, Enum):
-    HABIT = "habit"
-    ANXIETY = "anxiety"
+    STRESS = "stress"
     BOREDOM = "boredom"
-    SADNESS = "sadness"
-    RESTLESSNESS = "restlessness"
-    FATIGUE = "fatigue"
-    OTHER = "other"
+    AFTER_MEALS = "afterMeals"
+    COFFEE = "coffee"
+    HABIT = "habit"
+    SOCIAL = "social"
+    MORNING = "morning"
+    OTHER = "other"  # fallback for old session rows

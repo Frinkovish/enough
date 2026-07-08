@@ -108,6 +108,7 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
       case 0:
         question = 'What triggered this?';
         chips = CravingTrigger.values
+            .where((t) => t != CravingTrigger.other)
             .map((trigger) => ChoiceChip(
                   label: Text(trigger.label),
                   selected: false,
