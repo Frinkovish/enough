@@ -2,11 +2,7 @@ name: Daily Telegram reminder
 
 on:
   schedule:
-    # TEMP: every 10 minutes for testing — GitHub doesn't guarantee exact
-    # timing and can delay further under load. Revert to a daily cron
-    # (e.g. "0 8 * * *" for 08:00 UTC) once confirmed working.
-    - cron: "*/10 * * * *"
-  workflow_dispatch: {}
+    - cron: '10 * * * *'
 
 jobs:
   send-reminder:
