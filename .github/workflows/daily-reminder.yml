@@ -1,8 +1,12 @@
 name: Daily Telegram reminder
 
 on:
-  schedule:
-    - cron: '30 * * * *'
+  # Actual scheduling is done by an external service (cron-job.org) hitting
+  # the backend directly — GitHub Actions' own `schedule:` trigger is not
+  # reliable for time-sensitive jobs (documented, well-known limitation:
+  # https://github.com/upptime/upptime/issues/24). This workflow is kept
+  # only as a manual "run it now" button for testing.
+  workflow_dispatch: {}
 
 jobs:
   send-reminder:
