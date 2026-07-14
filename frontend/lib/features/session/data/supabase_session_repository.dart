@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../domain/craving_session.dart';
 import '../domain/recent_intervention.dart';
 import '../domain/session_repository.dart';
+import '../domain/task_skip_reason.dart';
 import '../domain/task_suggestion.dart';
 
 class SupabaseSessionRepository implements SessionRepository {
@@ -22,10 +23,12 @@ class SupabaseSessionRepository implements SessionRepository {
     required String sessionId,
     required SessionOutcome outcome,
     required bool taskCompleted,
+    TaskSkipReason? taskSkipReason,
   }) async {
     await _client.from(_table).update({
       'outcome': outcome.wireValue,
       'task_completed': taskCompleted,
+      'task_skip_reason': taskSkipReason?.wireValue,
       'completed_at': DateTime.now().toIso8601String(),
     }).eq('id', sessionId);
   }

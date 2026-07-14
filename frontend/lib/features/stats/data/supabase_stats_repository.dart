@@ -17,7 +17,10 @@ class SupabaseStatsRepository implements StatsRepository {
 
   static const _sessionsTable = 'craving_sessions';
   static const _goalsTable = 'monthly_goals';
-  static const _didNotSmoke = 'did_not_smoke';
+  /// 'did_not_smoke' is the legacy wire value written before addiction
+  /// types were generalized — still recognized so existing streaks/history
+  /// don't reset when read back.
+  static const _cleanOutcomes = {'stayed_clean', 'did_not_smoke'};
   static const _weeksOfTrend = 8;
 
   @override
@@ -31,11 +34,11 @@ class SupabaseStatsRepository implements StatsRepository {
 
     final outcomes = (rows as List).map((row) => row['outcome'] as String).toList();
 
-    final totalDelayed = outcomes.where((outcome) => outcome == _didNotSmoke).length;
+    final totalDelayed = outcomes.where((outcome) => _cleanOutcomes.contains(outcome)).length;
 
     var currentStreak = 0;
     for (final outcome in outcomes) {
-      if (outcome != _didNotSmoke) break;
+      if (!_cleanOutcomes.contains(outcome)) break;
       currentStreak++;
     }
 
@@ -80,7 +83,7 @@ class SupabaseStatsRepository implements StatsRepository {
     var totalDelayed = 0;
     var totalSmoked = 0;
     for (final outcome in outcomes) {
-      if (outcome == _didNotSmoke) {
+      if (_cleanOutcomes.contains(outcome)) {
         totalDelayed++;
       } else {
         totalSmoked++;
@@ -89,14 +92,14 @@ class SupabaseStatsRepository implements StatsRepository {
 
     var currentStreak = 0;
     for (final outcome in outcomes) {
-      if (outcome != _didNotSmoke) break;
+      if (!_cleanOutcomes.contains(outcome)) break;
       currentStreak++;
     }
 
     var bestStreak = 0;
     var runningStreak = 0;
     for (final outcome in outcomes.reversed) {
-      if (outcome == _didNotSmoke) {
+      if (_cleanOutcomes.contains(outcome)) {
         runningStreak++;
         if (runningStreak > bestStreak) bestStreak = runningStreak;
       } else {
@@ -114,7 +117,7 @@ class SupabaseStatsRepository implements StatsRepository {
       );
       final outcome = row['outcome'] as String;
       final current = byTrigger[trigger] ?? const TriggerStats();
-      byTrigger[trigger] = outcome == _didNotSmoke
+      byTrigger[trigger] = _cleanOutcomes.contains(outcome)
           ? TriggerStats(delayed: current.delayed + 1, smoked: current.smoked)
           : TriggerStats(delayed: current.delayed, smoked: current.smoked + 1);
     }
@@ -136,7 +139,7 @@ class SupabaseStatsRepository implements StatsRepository {
       final bucket = weekBuckets[_weekStartFor(completedAt)];
       if (bucket == null) continue; // outside the trend window
       final outcome = row['outcome'] as String;
-      if (outcome == _didNotSmoke) {
+      if (_cleanOutcomes.contains(outcome)) {
         bucket.delayed++;
       } else {
         bucket.smoked++;

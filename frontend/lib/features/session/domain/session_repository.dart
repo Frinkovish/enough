@@ -1,5 +1,6 @@
 import 'craving_session.dart';
 import 'recent_intervention.dart';
+import 'task_skip_reason.dart';
 import 'task_suggestion.dart';
 
 abstract class SessionRepository {
@@ -9,6 +10,7 @@ abstract class SessionRepository {
     required String sessionId,
     required SessionOutcome outcome,
     required bool taskCompleted,
+    TaskSkipReason? taskSkipReason,
   });
 
   /// Called when the user asks for a different suggestion mid-session —

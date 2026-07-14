@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.domain.addiction_type import AddictionType
 from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
 from app.domain.energy_level import EnergyLevel
@@ -24,4 +25,5 @@ class SuggestionGenerator(ABC):
         intensity: CravingIntensity,
         recent_interventions: list[RecentIntervention],
         location_context: LocationContext | None = None,
+        addiction_type: AddictionType = AddictionType.CIGARETTES,
     ) -> TaskSuggestion: ...

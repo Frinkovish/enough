@@ -9,7 +9,9 @@ from tests.conftest import as_user
 
 
 class _StubSuggestionService:
-    async def get_suggestion(self, trigger, goals, local_hour, energy, intensity, recent_interventions, location_context=None):
+    async def get_suggestion(
+        self, trigger, goals, local_hour, energy, intensity, recent_interventions, location_context=None, addiction_type=None
+    ):
         return TaskSuggestion(
             id="ai:stub",
             title="Stretch",

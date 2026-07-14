@@ -6,6 +6,8 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/animated_gradient_background.dart';
 import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/boo_loading.dart';
+import '../../../profile/domain/user_profile.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../domain/craving_intensity.dart';
 import '../../domain/craving_trigger.dart';
 import '../../domain/energy_level.dart';
@@ -58,12 +60,32 @@ class _CravingIntakeScreen extends ConsumerStatefulWidget {
 class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
   static const _stepCount = 3;
 
+  /// False until the addiction type for this craving is settled — either
+  /// skipped (Total control off / at most one addiction type on the
+  /// profile, so there's nothing to ask) or answered via the picker step.
+  bool _addictionResolved = false;
+  bool _addictionPickerShown = false;
+  AddictionType _addictionType = AddictionType.cigarettes;
+
   int _step = 0;
   bool _loading = false;
   CravingTrigger? _trigger;
   EnergyLevel? _energy;
 
-  void _back() => setState(() => _step -= 1);
+  void _back() {
+    if (_step > 0) {
+      setState(() => _step -= 1);
+    } else if (_addictionPickerShown) {
+      setState(() => _addictionResolved = false);
+    }
+  }
+
+  void _selectAddictionType(AddictionType type) {
+    setState(() {
+      _addictionType = type;
+      _addictionResolved = true;
+    });
+  }
 
   void _selectTrigger(CravingTrigger trigger) {
     setState(() {
@@ -85,6 +107,7 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
           _trigger!,
           _energy!,
           intensity,
+          addictionType: _addictionType,
         );
     if (mounted) context.go(AppRoutes.session);
   }
@@ -100,6 +123,30 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
           ],
         ),
       );
+    }
+
+    if (!_addictionResolved) {
+      final profileAsync = ref.watch(userProfileProvider);
+      if (profileAsync.isLoading) {
+        return const Scaffold(
+          body: Stack(
+            children: [
+              Positioned.fill(child: AnimatedGradientBackground()),
+              Center(child: BooLoading(label: 'One sec…')),
+            ],
+          ),
+        );
+      }
+
+      // Any error is treated the same as "no profile yet" — fail open to
+      // the pre-Total-control default rather than blocking the craving flow.
+      final profile = profileAsync.valueOrNull;
+      final choices = (profile?.totalControl ?? false) ? profile!.addictionTypes : const <AddictionType>[];
+      if (choices.length > 1) {
+        return _buildAddictionPicker(context, choices);
+      }
+      _addictionType = choices.length == 1 ? choices.single : AddictionType.cigarettes;
+      _addictionResolved = true;
     }
 
     final String question;
@@ -158,7 +205,7 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
                       children: [
                         SizedBox(
                           width: 40,
-                          child: _step > 0
+                          child: _step > 0 || _addictionPickerShown
                               ? IconButton(
                                   icon: const Icon(Icons.arrow_back, size: 20),
                                   onPressed: _back,
@@ -205,6 +252,73 @@ class _CravingIntakeScreenState extends ConsumerState<_CravingIntakeScreen> {
                       spacing: 12,
                       runSpacing: 12,
                       children: chips,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown before the usual trigger/energy/intensity questions when
+  /// Total control is on and the profile has more than one addiction type
+  /// — otherwise there's nothing to ask and [_addictionType] is resolved
+  /// automatically.
+  Widget _buildAddictionPicker(BuildContext context, List<AddictionType> choices) {
+    _addictionPickerShown = true;
+    return Scaffold(
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AnimatedGradientBackground()),
+          const SafeArea(
+            child: Align(
+              alignment: Alignment(-0.85, -0.5),
+              child: BooAvatar(assetPath: 'assets/images/boo.png'),
+            ),
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const SizedBox(width: 40),
+                        Expanded(
+                          child: Text(
+                            'Which one is this?',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, size: 20),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: choices
+                          .map((type) => ChoiceChip(
+                                label: Text(type.label),
+                                selected: false,
+                                onSelected: (_) => _selectAddictionType(type),
+                              ))
+                          .toList(),
                     ),
                   ],
                 ),

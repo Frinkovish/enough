@@ -28,12 +28,20 @@ class ProfileController extends AsyncNotifier<void> {
   }
 
   /// Clears craving session history so streaks and trend charts go back
-  /// to zero. Does not touch monthly goals — those have their own
-  /// edit/delete controls.
+  /// to zero, and restarts the days-clean counter from today. Does not
+  /// touch monthly goals or the days-clean target — those have their own
+  /// edit/delete controls and aren't "stats".
   Future<void> resetStats() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await ref.read(sessionRepositoryProvider).resetAllSessions();
+
+      final profile = ref.read(userProfileProvider).valueOrNull;
+      if (profile != null) {
+        await ref.read(profileRepositoryProvider).saveProfile(profile.copyWith(quitDate: DateTime.now()));
+      }
+
+      ref.invalidate(userProfileProvider);
       ref.invalidate(cravingStatsProvider);
       ref.invalidate(cravingInsightsProvider);
     });

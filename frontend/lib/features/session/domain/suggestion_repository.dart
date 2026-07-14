@@ -1,4 +1,5 @@
 import '../../goals/domain/monthly_goal.dart';
+import '../../profile/domain/user_profile.dart';
 import 'craving_intensity.dart';
 import 'craving_trigger.dart';
 import 'energy_level.dart';
@@ -26,5 +27,6 @@ abstract class SuggestionRepository {
     required CravingIntensity intensity,
     required List<RecentIntervention> recentInterventions,
     LocationContext? locationContext,
+    AddictionType addictionType = AddictionType.cigarettes,
   });
 }

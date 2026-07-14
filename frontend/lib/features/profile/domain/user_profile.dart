@@ -86,6 +86,43 @@ extension QuitReasonWire on QuitReason {
   }
 }
 
+enum AddictionType { cigarettes, weed, masturbation, other }
+
+extension AddictionTypeWire on AddictionType {
+  String get wireValue {
+    switch (this) {
+      case AddictionType.cigarettes:
+        return 'cigarettes';
+      case AddictionType.weed:
+        return 'weed';
+      case AddictionType.masturbation:
+        return 'masturbation';
+      case AddictionType.other:
+        return 'other';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case AddictionType.cigarettes:
+        return 'Cigarettes';
+      case AddictionType.weed:
+        return 'Weed';
+      case AddictionType.masturbation:
+        return 'Masturbation';
+      case AddictionType.other:
+        return 'Other';
+    }
+  }
+
+  static AddictionType? fromWire(String value) {
+    for (final type in AddictionType.values) {
+      if (type.wireValue == value) return type;
+    }
+    return null;
+  }
+}
+
 class UserProfile {
   const UserProfile({
     required this.userId,
@@ -94,6 +131,10 @@ class UserProfile {
     this.occupation,
     this.gender,
     this.quitReasons = const [],
+    this.addictionTypes = const [],
+    this.totalControl = false,
+    this.quitDate,
+    this.daysCleanTarget,
   });
 
   final String userId;
@@ -103,12 +144,34 @@ class UserProfile {
   final Gender? gender;
   final List<QuitReason> quitReasons;
 
+  /// The day the "days clean" counter counts from. Set on first profile
+  /// save and reset to the current day whenever stats are cleared —
+  /// starting the counter over along with the session history.
+  final DateTime? quitDate;
+
+  /// Personal milestone for the days-clean counter (e.g. 30, 90, 365).
+  /// Purely a display target — unaffected by resetting stats.
+  final int? daysCleanTarget;
+
+  /// Which addictions this profile is tracking. When empty (or when
+  /// [totalControl] is off), the craving flow defaults to cigarettes —
+  /// the app's original single-addiction behavior.
+  final List<AddictionType> addictionTypes;
+
+  /// When on, logging a craving asks which of [addictionTypes] it's for
+  /// instead of always assuming cigarettes.
+  final bool totalControl;
+
   UserProfile copyWith({
     String? displayName,
     DateTime? birthdate,
     String? occupation,
     Gender? gender,
     List<QuitReason>? quitReasons,
+    List<AddictionType>? addictionTypes,
+    bool? totalControl,
+    DateTime? quitDate,
+    int? daysCleanTarget,
   }) {
     return UserProfile(
       userId: userId,
@@ -117,6 +180,10 @@ class UserProfile {
       occupation: occupation ?? this.occupation,
       gender: gender ?? this.gender,
       quitReasons: quitReasons ?? this.quitReasons,
+      addictionTypes: addictionTypes ?? this.addictionTypes,
+      totalControl: totalControl ?? this.totalControl,
+      quitDate: quitDate ?? this.quitDate,
+      daysCleanTarget: daysCleanTarget ?? this.daysCleanTarget,
     );
   }
 }

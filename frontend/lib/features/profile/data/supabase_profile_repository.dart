@@ -28,6 +28,13 @@ class SupabaseProfileRepository implements ProfileRepository {
           .map((value) => QuitReasonWire.fromWire(value as String))
           .whereType<QuitReason>()
           .toList(),
+      addictionTypes: ((row['addiction_types'] as List?) ?? [])
+          .map((value) => AddictionTypeWire.fromWire(value as String))
+          .whereType<AddictionType>()
+          .toList(),
+      totalControl: row['total_control'] as bool? ?? false,
+      quitDate: row['quit_date'] == null ? null : DateTime.parse(row['quit_date'] as String),
+      daysCleanTarget: (row['days_clean_target'] as num?)?.toInt(),
     );
   }
 
@@ -40,6 +47,10 @@ class SupabaseProfileRepository implements ProfileRepository {
       'occupation': profile.occupation,
       'gender': profile.gender?.wireValue,
       'quit_reasons': profile.quitReasons.map((reason) => reason.wireValue).toList(),
+      'addiction_types': profile.addictionTypes.map((type) => type.wireValue).toList(),
+      'total_control': profile.totalControl,
+      'quit_date': profile.quitDate?.toIso8601String().substring(0, 10),
+      'days_clean_target': profile.daysCleanTarget,
       'updated_at': DateTime.now().toIso8601String(),
     });
   }

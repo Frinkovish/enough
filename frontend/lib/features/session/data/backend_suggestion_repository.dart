@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../goals/domain/monthly_goal.dart';
+import '../../profile/domain/user_profile.dart';
 import '../domain/craving_intensity.dart';
 import '../domain/craving_trigger.dart';
 import '../domain/energy_level.dart';
@@ -38,6 +39,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
     required CravingIntensity intensity,
     required List<RecentIntervention> recentInterventions,
     LocationContext? locationContext,
+    AddictionType addictionType = AddictionType.cigarettes,
   }) async {
     final token = _client.auth.currentSession?.accessToken;
     if (token == null) {
@@ -49,6 +51,7 @@ class BackendSuggestionRepository implements SuggestionRepository {
       'local_hour': DateTime.now().hour,
       'energy': energy.name,
       'intensity': intensity.name,
+      'addiction_type': addictionType.wireValue,
       if (locationContext != null) 'location_context': locationContext.wireValue,
       'recent_interventions': recentInterventions
           .map((item) => {'title': item.title, 'category': item.category.wireValue})

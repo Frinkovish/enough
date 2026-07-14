@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from app.domain.addiction_type import AddictionType
 from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
 from app.domain.energy_level import EnergyLevel
@@ -38,6 +39,7 @@ class SuggestionRequest(BaseModel):
     intensity: CravingIntensity
     recent_interventions: list[RecentInterventionIn] = []
     location_context: LocationContext | None = None
+    addiction_type: AddictionType = AddictionType.CIGARETTES
 
 
 class SuggestionRead(BaseModel):

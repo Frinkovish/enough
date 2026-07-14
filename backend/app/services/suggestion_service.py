@@ -1,5 +1,6 @@
 import logging
 
+from app.domain.addiction_type import AddictionType
 from app.domain.craving_intensity import CravingIntensity
 from app.domain.craving_trigger import CravingTrigger
 from app.domain.energy_level import EnergyLevel
@@ -32,13 +33,21 @@ class SuggestionService:
         intensity: CravingIntensity,
         recent_interventions: list[RecentIntervention],
         location_context: LocationContext | None = None,
+        addiction_type: AddictionType = AddictionType.CIGARETTES,
     ) -> TaskSuggestion:
         if self._generator is None:
             logger.info("No AI generator configured, using static suggestion pool")
         else:
             try:
                 return await self._generator.generate(
-                    trigger, goals, local_hour, energy, intensity, recent_interventions, location_context
+                    trigger,
+                    goals,
+                    local_hour,
+                    energy,
+                    intensity,
+                    recent_interventions,
+                    location_context,
+                    addiction_type,
                 )
             except Exception as exc:  # noqa: BLE001 — any AI failure must fall back, not break the loop
                 logger.warning("AI generator raised %r, falling back to static pool", exc)

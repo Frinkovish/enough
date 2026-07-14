@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -7,12 +8,14 @@ import '../../../../core/config/env.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../goals/domain/monthly_goal.dart';
 import '../../../goals/presentation/providers/goal_providers.dart';
+import '../../../profile/domain/user_profile.dart';
 import '../../../stats/presentation/providers/stats_providers.dart';
 import '../../domain/craving_intensity.dart';
 import '../../domain/craving_session.dart';
 import '../../domain/craving_trigger.dart';
 import '../../domain/energy_level.dart';
 import '../../domain/recent_intervention.dart';
+import '../../domain/task_skip_reason.dart';
 import '../../domain/task_suggestion.dart';
 import 'session_providers.dart';
 
@@ -71,14 +74,16 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
   Future<void> startSession(
     CravingTrigger trigger,
     EnergyLevel energy,
-    CravingIntensity intensity,
-  ) async {
+    CravingIntensity intensity, {
+    AddictionType addictionType = AddictionType.cigarettes,
+  }) async {
     final userId = ref.read(currentUserProvider)?.id ?? (Env.devBypassAuth ? _devBypassUserId : null);
     if (userId == null) return;
 
     final activeGoals = await ref.read(goalRepositoryProvider).getActiveGoals();
     final recentInterventions = await ref.read(sessionRepositoryProvider).getRecentInterventions();
-    final picked = await _pickTask(trigger, activeGoals, energy, intensity, recentInterventions);
+    final picked =
+        await _pickTask(trigger, activeGoals, energy, intensity, recentInterventions, addictionType);
 
     final session = CravingSession(
       id: _uuid.v4(),
@@ -89,6 +94,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
       trigger: trigger,
       energyLevel: energy,
       cravingIntensity: intensity,
+      addictionType: addictionType,
       goalId: picked.goalId,
     );
 
@@ -113,6 +119,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
         session.energyLevel,
         session.cravingIntensity,
         recentInterventions,
+        session.addictionType,
       );
       final updatedSession = session.withSuggestion(picked.task, picked.goalId);
 
@@ -125,7 +132,8 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
             task: picked.task,
             goalId: picked.goalId,
           ));
-    } catch (_) {
+    } catch (e, st) {
+      dev.log('refreshSuggestion failed', error: e, stackTrace: st, name: 'session');
       state = state?.copyWith(isRefreshingSuggestion: false);
     }
   }
@@ -139,6 +147,7 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
     EnergyLevel energy,
     CravingIntensity intensity,
     List<RecentIntervention> recentInterventions,
+    AddictionType addictionType,
   ) async {
     final locationContext = ref.read(locationContextProvider);
     try {
@@ -149,9 +158,11 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
             intensity: intensity,
             recentInterventions: recentInterventions,
             locationContext: locationContext,
+            addictionType: addictionType,
           );
       return (task: task, goalId: task.goalId);
-    } catch (_) {
+    } catch (e, st) {
+      dev.log('getSuggestion failed, using fallback', error: e, stackTrace: st, name: 'session');
       final fallbackGoal = activeGoals.isEmpty ? null : activeGoals.first;
       final task = fallbackGoal == null
           ? ref.read(taskSuggestionRepositoryProvider).getRandomSuggestion()
@@ -217,13 +228,19 @@ class ActiveSessionController extends Notifier<ActiveSessionState?> {
   /// [taskCompleted] is asked independently of [outcome]: resisting a
   /// craving and doing the suggested task are different signals, so goal
   /// progress is credited based on the task, not on whether they smoked.
-  Future<void> recordOutcome(SessionOutcome outcome, {required bool taskCompleted}) async {
+  /// [taskSkipReason] is only ever set alongside `taskCompleted: false`.
+  Future<void> recordOutcome(
+    SessionOutcome outcome, {
+    required bool taskCompleted,
+    TaskSkipReason? taskSkipReason,
+  }) async {
     final current = state;
     if (current == null) return;
     await ref.read(sessionRepositoryProvider).completeSession(
           sessionId: current.session.id,
           outcome: outcome,
           taskCompleted: taskCompleted,
+          taskSkipReason: taskSkipReason,
         );
 
     final goalId = current.session.goalId;

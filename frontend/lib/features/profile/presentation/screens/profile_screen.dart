@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/settings/app_settings.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../reminders/presentation/providers/reminder_providers.dart';
 import '../../domain/user_profile.dart';
 import '../providers/profile_providers.dart';
 
@@ -17,15 +18,32 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _nameController = TextEditingController();
   final _occupationController = TextEditingController();
+  final _targetController = TextEditingController();
   DateTime? _birthdate;
   Gender? _gender;
   final Set<QuitReason> _quitReasons = {};
+  final Set<AddictionType> _addictionTypes = {};
+  bool _totalControl = false;
+
+  /// Defaults to today so the days-clean counter reads 0 for a brand new
+  /// profile, rather than needing a null check everywhere it's used.
+  DateTime _quitDate = DateTime.now();
+  int? _daysCleanTarget;
   bool _loaded = false;
+  bool _sendingTestReminder = false;
+
+  int get _daysClean {
+    final today = DateTime.now();
+    final start = DateTime(_quitDate.year, _quitDate.month, _quitDate.day);
+    final end = DateTime(today.year, today.month, today.day);
+    return end.difference(start).inDays;
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _occupationController.dispose();
+    _targetController.dispose();
     super.dispose();
   }
 
@@ -37,6 +55,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _birthdate = profile.birthdate;
     _gender = profile.gender;
     _quitReasons.addAll(profile.quitReasons);
+    _addictionTypes.addAll(profile.addictionTypes);
+    _totalControl = profile.totalControl;
+    _quitDate = profile.quitDate ?? _quitDate;
+    _daysCleanTarget = profile.daysCleanTarget;
+    _targetController.text = _daysCleanTarget?.toString() ?? '';
   }
 
   Future<void> _pickBirthdate() async {
@@ -53,6 +76,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userId = ref.read(currentUserProvider)?.id;
     if (userId == null) return;
 
+    final targetText = _targetController.text.trim();
+    final target = targetText.isEmpty ? null : int.tryParse(targetText);
+
     await ref.read(profileControllerProvider.notifier).saveProfile(
           UserProfile(
             userId: userId,
@@ -61,6 +87,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             occupation: _occupationController.text.trim().isEmpty ? null : _occupationController.text.trim(),
             gender: _gender,
             quitReasons: _quitReasons.toList(),
+            addictionTypes: _addictionTypes.toList(),
+            totalControl: _totalControl,
+            quitDate: _quitDate,
+            daysCleanTarget: target,
           ),
         );
     if (mounted) {
@@ -74,8 +104,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Reset all stats?'),
         content: const Text(
-          'Your craving session history, streaks, and trend charts will be cleared. '
-          'This can\'t be undone. Monthly goals are not affected.',
+          'Your craving session history, streaks, and trend charts will be cleared, and your '
+          "days-clean counter will restart from today. This can't be undone. Monthly goals and "
+          "your days-clean target aren't affected.",
         ),
         actions: [
           TextButton(
@@ -92,8 +123,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirmed != true) return;
 
     await ref.read(profileControllerProvider.notifier).resetStats();
+    setState(() => _quitDate = DateTime.now());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stats reset.')));
+    }
+  }
+
+  Future<void> _sendTestReminder() async {
+    setState(() => _sendingTestReminder = true);
+    try {
+      await ref.read(reminderRepositoryProvider).sendTestReminder();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Test reminder sent.')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text("Couldn't send it — check the backend logs.")));
+      }
+    } finally {
+      if (mounted) setState(() => _sendingTestReminder = false);
     }
   }
 
@@ -128,12 +177,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildForm(BuildContext context, String email, bool isSaving) {
     final maxGoals = ref.watch(maxGoalsProvider);
+    final isAdmin = ref.watch(isAdminProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Text('Days clean', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text(
+                    _daysCleanTarget == null ? '$_daysClean days' : '$_daysClean / $_daysCleanTarget days',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  if (_daysCleanTarget != null && _daysCleanTarget! > 0) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: (_daysClean / _daysCleanTarget!).clamp(0, 1).toDouble(),
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Since ${_formatDate(_quitDate)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _targetController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Target (days)', hintText: 'e.g. 30'),
+          ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
           Text('Goals', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),
           Row(
@@ -212,7 +301,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             }).toList(),
           ),
           const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+          Text('What are you working on?', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: AddictionType.values.map((type) {
+              return FilterChip(
+                label: Text(type.label),
+                selected: _addictionTypes.contains(type),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      _addictionTypes.add(type);
+                    } else {
+                      _addictionTypes.remove(type);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Total control'),
+            subtitle: const Text(
+              "When on, logging a craving asks which of the above it's for. "
+              'When off, cravings are always logged as cigarettes.',
+            ),
+            value: _totalControl,
+            onChanged: (value) => setState(() => _totalControl = value),
+          ),
+          const SizedBox(height: 24),
           PrimaryButton(label: 'Save', isLoading: isSaving, onPressed: _save),
+          if (isAdmin) ...[
+            const SizedBox(height: 40),
+            const Divider(),
+            const SizedBox(height: 16),
+            Text('Dev tools', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _sendingTestReminder ? null : _sendTestReminder,
+              child: Text(_sendingTestReminder ? 'Sending…' : 'Send test reminder'),
+            ),
+          ],
           const SizedBox(height: 40),
           const Divider(),
           const SizedBox(height: 16),

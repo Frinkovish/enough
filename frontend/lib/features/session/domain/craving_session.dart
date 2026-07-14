@@ -1,20 +1,22 @@
+import '../../profile/domain/user_profile.dart';
 import 'craving_intensity.dart';
 import 'craving_trigger.dart';
 import 'energy_level.dart';
 import 'task_suggestion.dart';
 
-enum SessionOutcome { smoked, didNotSmoke }
+/// Generic names since a session may be logged against any [AddictionType],
+/// not just cigarettes — [used] covers "smoked"/"gave in" alike.
+enum SessionOutcome { used, stayedClean }
 
 extension SessionOutcomeWire on SessionOutcome {
-  /// Snake_case wire value matching the backend's `SessionOutcome` enum
-  /// and the database's check constraint — must not be confused with
-  /// [Enum.name], which is camelCase (`didNotSmoke`) and would violate it.
+  /// Snake_case wire value matching the database's check constraint —
+  /// must not be confused with [Enum.name].
   String get wireValue {
     switch (this) {
-      case SessionOutcome.smoked:
-        return 'smoked';
-      case SessionOutcome.didNotSmoke:
-        return 'did_not_smoke';
+      case SessionOutcome.used:
+        return 'used';
+      case SessionOutcome.stayedClean:
+        return 'stayed_clean';
     }
   }
 }
@@ -29,6 +31,7 @@ class CravingSession {
     required this.trigger,
     required this.energyLevel,
     required this.cravingIntensity,
+    this.addictionType = AddictionType.cigarettes,
     this.goalId,
     this.outcome,
     this.completedAt,
@@ -40,6 +43,11 @@ class CravingSession {
   final int durationSeconds;
   final TaskSuggestion suggestedTask;
   final CravingTrigger trigger;
+
+  /// Which addiction this craving was logged against. Defaults to
+  /// cigarettes — the pre-"Total control" behavior — for callers that
+  /// don't set it explicitly.
+  final AddictionType addictionType;
 
   /// Reported once at the start of the session — capacity/intensity are
   /// snapshots of how the user felt walking in, not tracked per-refresh.
@@ -63,6 +71,7 @@ class CravingSession {
       trigger: trigger,
       energyLevel: energyLevel,
       cravingIntensity: cravingIntensity,
+      addictionType: addictionType,
       goalId: goalId,
       outcome: outcome ?? this.outcome,
       completedAt: completedAt ?? this.completedAt,
@@ -82,6 +91,7 @@ class CravingSession {
       trigger: trigger,
       energyLevel: energyLevel,
       cravingIntensity: cravingIntensity,
+      addictionType: addictionType,
       goalId: goalId,
       outcome: outcome,
       completedAt: completedAt,
@@ -100,6 +110,7 @@ class CravingSession {
       'trigger': trigger.name,
       'energy_level': energyLevel.name,
       'craving_intensity': cravingIntensity.name,
+      'addiction_type': addictionType.wireValue,
       'goal_id': goalId,
     };
   }

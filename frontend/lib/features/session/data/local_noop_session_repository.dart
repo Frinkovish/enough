@@ -1,6 +1,7 @@
 import '../domain/craving_session.dart';
 import '../domain/recent_intervention.dart';
 import '../domain/session_repository.dart';
+import '../domain/task_skip_reason.dart';
 import '../domain/task_suggestion.dart';
 
 /// Dev-only stand-in used when DEV_BYPASS_AUTH is set: lets the core
@@ -15,6 +16,7 @@ class LocalNoopSessionRepository implements SessionRepository {
     required String sessionId,
     required SessionOutcome outcome,
     required bool taskCompleted,
+    TaskSkipReason? taskSkipReason,
   }) async {}
 
   @override

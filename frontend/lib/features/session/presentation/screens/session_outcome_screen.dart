@@ -6,9 +6,19 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/boo_avatar.dart';
 import '../../../../core/widgets/primary_button.dart';
 import '../../../../core/widgets/responsive_center.dart';
+import '../../../profile/domain/user_profile.dart';
 import '../../domain/craving_session.dart';
+import '../../domain/task_skip_reason.dart';
 import '../../domain/task_suggestion.dart';
 import '../providers/active_session_controller.dart';
+
+/// Phrasing for the "what did you decide" question, tailored per addiction
+/// so cigarette sessions still read as "smoked" while non-smoking ones
+/// read as "used"/"stayed clean" instead.
+extension _AddictionOutcomeCopy on AddictionType {
+  String get usedLabel => this == AddictionType.cigarettes ? 'I smoked' : 'I used';
+  String get stayedCleanLabel => this == AddictionType.cigarettes ? "I didn't smoke" : 'I stayed clean';
+}
 
 class SessionOutcomeScreen extends ConsumerStatefulWidget {
   const SessionOutcomeScreen({super.key});
@@ -20,6 +30,13 @@ class SessionOutcomeScreen extends ConsumerStatefulWidget {
 class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
   SessionOutcome? _outcome;
   bool? _taskCompleted;
+  TaskSkipReason? _taskSkipReason;
+
+  /// True once the skip-reason step has been shown and resolved (either a
+  /// reason was picked, or the user skipped it) — distinct from
+  /// [_taskSkipReason] being null, which is also true before that step
+  /// has even been reached.
+  bool _skipReasonResolved = false;
 
   void _chooseOutcome(SessionOutcome outcome) {
     setState(() => _outcome = outcome);
@@ -29,14 +46,27 @@ class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
     setState(() => _taskCompleted = completed);
   }
 
+  void _chooseSkipReason(TaskSkipReason reason) {
+    setState(() {
+      _taskSkipReason = reason;
+      _skipReasonResolved = true;
+    });
+  }
+
+  void _skipReasonStep() {
+    setState(() => _skipReasonResolved = true);
+  }
+
   Future<void> _finish() async {
     final outcome = _outcome;
     final completed = _taskCompleted;
     if (outcome == null || completed == null) return;
     try {
-      await ref
-          .read(activeSessionControllerProvider.notifier)
-          .recordOutcome(outcome, taskCompleted: completed);
+      await ref.read(activeSessionControllerProvider.notifier).recordOutcome(
+            outcome,
+            taskCompleted: completed,
+            taskSkipReason: _taskSkipReason,
+          );
     } catch (error, stackTrace) {
       // Logged so the real cause (e.g. an RLS permission error from
       // Supabase) is visible during development instead of only showing
@@ -55,17 +85,21 @@ class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final task = ref.read(activeSessionControllerProvider)?.session.suggestedTask;
+    final session = ref.read(activeSessionControllerProvider)?.session;
+    final task = session?.suggestedTask;
+    final addictionType = session?.addictionType ?? AddictionType.cigarettes;
 
     Widget step;
     if (_outcome == null) {
-      step = _SmokeQuestion(onChoose: _chooseOutcome);
+      step = _OutcomeQuestion(addictionType: addictionType, onChoose: _chooseOutcome);
     } else if (_taskCompleted == null) {
       step = _TaskQuestion(task: task, onChoose: _chooseTaskCompletion);
+    } else if (_taskCompleted == false && !_skipReasonResolved) {
+      step = _TaskSkipReasonQuestion(onChoose: _chooseSkipReason, onSkip: _skipReasonStep);
     } else {
       // Celebrate any partial win — resisting the craving or doing the
       // task both count, even if the other one didn't go as hoped.
-      final isWin = _outcome == SessionOutcome.didNotSmoke || _taskCompleted == true;
+      final isWin = _outcome == SessionOutcome.stayedClean || _taskCompleted == true;
       step = _ReactionStep(isWin: isWin, onContinue: _finish);
     }
 
@@ -82,9 +116,10 @@ class _SessionOutcomeScreenState extends ConsumerState<SessionOutcomeScreen> {
   }
 }
 
-class _SmokeQuestion extends StatelessWidget {
-  const _SmokeQuestion({required this.onChoose});
+class _OutcomeQuestion extends StatelessWidget {
+  const _OutcomeQuestion({required this.addictionType, required this.onChoose});
 
+  final AddictionType addictionType;
   final void Function(SessionOutcome outcome) onChoose;
 
   @override
@@ -106,13 +141,13 @@ class _SmokeQuestion extends StatelessWidget {
         ),
         const SizedBox(height: 40),
         PrimaryButton(
-          label: "I didn't smoke",
-          onPressed: () => onChoose(SessionOutcome.didNotSmoke),
+          label: addictionType.stayedCleanLabel,
+          onPressed: () => onChoose(SessionOutcome.stayedClean),
         ),
         const SizedBox(height: 16),
         OutlinedButton(
-          onPressed: () => onChoose(SessionOutcome.smoked),
-          child: const Text('I smoked'),
+          onPressed: () => onChoose(SessionOutcome.used),
+          child: Text(addictionType.usedLabel),
         ),
       ],
     );
@@ -154,6 +189,49 @@ class _TaskQuestion extends StatelessWidget {
           onPressed: () => onChoose(false),
           child: const Text('Not this time'),
         ),
+      ],
+    );
+  }
+}
+
+class _TaskSkipReasonQuestion extends StatelessWidget {
+  const _TaskSkipReasonQuestion({required this.onChoose, required this.onSkip});
+
+  final void Function(TaskSkipReason reason) onChoose;
+  final VoidCallback onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'No worries — what got in the way?',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Helps Boo suggest better tasks next time.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 32),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 12,
+          children: TaskSkipReason.values
+              .map((reason) => ChoiceChip(
+                    label: Text(reason.label),
+                    selected: false,
+                    onSelected: (_) => onChoose(reason),
+                  ))
+              .toList(),
+        ),
+        const SizedBox(height: 24),
+        TextButton(onPressed: onSkip, child: const Text('Skip')),
       ],
     );
   }

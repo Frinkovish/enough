@@ -25,6 +25,7 @@ class _FakeGenerator(SuggestionGenerator):
         intensity: CravingIntensity,
         recent_interventions: list[RecentIntervention],
         location_context=None,
+        addiction_type=None,
     ) -> TaskSuggestion:
         if self._error is not None:
             raise self._error
