@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     reminder_user_id: str | None = None
     reminder_secret: str | None = None
     supabase_service_role_key: str | None = None
+    # IANA timezone name so the reminder message can reference the actual
+    # time of day for the recipient (this runs on a schedule with no
+    # client to report a local hour, unlike the suggestion endpoint).
+    reminder_timezone: str = "UTC"
 
 
 @lru_cache
