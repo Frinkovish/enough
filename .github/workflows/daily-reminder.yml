@@ -1,0 +1,20 @@
+name: Daily Telegram reminder
+
+on:
+  schedule:
+    # TEMP: every minute for testing. GitHub only guarantees ~5 min
+    # granularity and can delay further under load, so this is a best
+    # effort during testing, not a real interval. Revert to a daily cron
+    # (e.g. "0 8 * * *" for 08:00 UTC) once confirmed working.
+    - cron: "* * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backend reminder endpoint
+        run: |
+          curl -fsS --max-time 60 --retry 2 --retry-delay 10 \
+            -X POST "${{ secrets.REMINDER_BACKEND_URL }}/api/v1/reminders/daily" \
+            -H "X-Reminder-Secret: ${{ secrets.REMINDER_SECRET }}"

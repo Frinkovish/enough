@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     azure_openai_api_key: str | None = None
     azure_openai_model: str = "gpt-4o-mini"
 
+    # Daily reminder via a Telegram bot — see app/api/v1/reminders.py. This
+    # is a single-user personal automation, not a per-account feature, so
+    # the recipient and the profile it reads from are both fixed config.
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
+    reminder_user_id: str | None = None
+    reminder_secret: str | None = None
+    supabase_service_role_key: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
