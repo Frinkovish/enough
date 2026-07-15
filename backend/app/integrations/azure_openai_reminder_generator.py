@@ -3,11 +3,11 @@ import httpx
 from app.integrations.azure_responses import extract_output_text, is_reasoning_model
 from app.integrations.supabase_admin_client import GoalProgress
 
-_SYSTEM_PROMPT = (
-    "You write a single short daily check-in message for someone tracking their progress "
-    "staying clean from an addiction, sent as a phone notification. Tone: warm and human, "
-    "like a close friend who's genuinely rooting for them — never clinical, never "
-    "guilt-inducing, never over-the-top motivational-poster energy, never a listicle. "
+_BASE_SYSTEM_PROMPT = (
+    "You write a single short check-in message for someone tracking their progress staying "
+    "clean from an addiction, sent as a phone notification. Tone: warm and human, like a "
+    "close friend who's genuinely rooting for them — never clinical, never guilt-inducing, "
+    "never over-the-top motivational-poster energy, never a listicle. "
     "You'll be given several pieces of context below — do NOT try to mention all of them "
     "in one message. Pick ONE, or at most two, that feel most worth saying right now, and "
     "ignore the rest. Rotate what you focus on across messages over time (sometimes the day "
@@ -16,17 +16,32 @@ _SYSTEM_PROMPT = (
     "fixed template. Never fall into always starting with 'Day X' or always using the "
     "person's name in the same spot. "
     "Use their name only if given, and only sometimes — not every message. "
-    "Reference the time of day naturally if it fits, without a generic 'good morning' "
-    "greeting every time. "
     "If a goal is mentioned, refer to it in passing, specific but brief (e.g. what they're "
     "at vs. the target) — don't turn it into a status report. "
     "If a quit-reason is mentioned, use it to genuinely remind them why this matters, not as "
     "a guilt trip. "
     "If no day-count/goal/reason data is given for a category, don't invent one — just work "
     "with what you have, or default to a short generic-but-warm encouragement. "
-    "Keep it to 1-2 short sentences (under ~35 words total). Light emoji is welcome but "
-    "optional — don't overdo it. Sign off as Boo only occasionally, not every message. "
     "Respond with ONLY the message text — no quotes, no preamble, no explanation."
+)
+
+_GENERAL_OCCASION_PROMPT = (
+    "This is a regular check-in, could land at any time of day — reference the time of day "
+    "naturally if it fits, without a generic greeting every time. "
+    "Keep it to 1-2 short sentences (under ~35 words total). Light emoji is welcome but "
+    "optional — don't overdo it. Sign off as Boo only occasionally, not every message."
+)
+
+_MORNING_OCCASION_PROMPT = (
+    "This is their very first message of the day, sent right as they wake up — make it feel "
+    "like a genuine send-off for the day ahead: energizing and warm, not just a status "
+    "update. Beyond whatever context you pick to mention, give them one concrete, small, "
+    "doable focus for today — tied to an active goal if one is given, otherwise a simple "
+    "grounding action related to staying clean (e.g. a specific moment to watch out for "
+    "later, one small ritual to start the day, one thing to do in the first hour). "
+    "Keep it to 2-3 short sentences (under ~55 words total) — a little more room than a "
+    "regular check-in since it's setting up their whole day. Light emoji welcome. Sign off "
+    "as Boo only occasionally, not every message."
 )
 
 
@@ -42,8 +57,11 @@ def _build_user_prompt(
     target: int | None,
     quit_reasons: list[str],
     goals: list[GoalProgress],
+    occasion: str,
 ) -> str:
     parts = [f"It's currently {day_part} for them."]
+    if occasion == "morning":
+        parts.append("They just woke up — this is their first message of the day.")
     parts.append(f"Their name is {display_name}." if display_name else "Their name isn't known.")
 
     if days_clean is None:
@@ -91,6 +109,7 @@ class AzureOpenAIReminderGenerator:
         target: int | None,
         quit_reasons: list[str],
         goals: list[GoalProgress],
+        occasion: str = "general",
     ) -> str:
         user_prompt = _build_user_prompt(
             display_name=display_name,
@@ -99,7 +118,10 @@ class AzureOpenAIReminderGenerator:
             target=target,
             quit_reasons=quit_reasons,
             goals=goals,
+            occasion=occasion,
         )
+        occasion_prompt = _MORNING_OCCASION_PROMPT if occasion == "morning" else _GENERAL_OCCASION_PROMPT
+        system_prompt = f"{_BASE_SYSTEM_PROMPT} {occasion_prompt}"
 
         try:
             async with httpx.AsyncClient(
@@ -108,7 +130,7 @@ class AzureOpenAIReminderGenerator:
                 body = {
                     "model": self._model,
                     "input": [
-                        {"role": "system", "content": _SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
                     ],
                     "max_output_tokens": 120,

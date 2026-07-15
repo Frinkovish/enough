@@ -44,8 +44,13 @@ def _day_part(timezone_name: str) -> str:
     return "night"
 
 
-def _static_message(display_name: str | None, days_clean: int | None, target: int | None) -> str:
+def _static_message(
+    display_name: str | None, days_clean: int | None, target: int | None, occasion: str
+) -> str:
     name = f"{display_name}, " if display_name else ""
+    if occasion == "morning":
+        greeting = f"Good morning, {display_name}" if display_name else "Good morning"
+        return f"{greeting} — time to start the day clean. Boo's got your back. 🌅"
     if days_clean is None:
         return f"{name}today's a good day to stay clean. Boo's rooting for you. 💚"
     if target:
@@ -53,7 +58,9 @@ def _static_message(display_name: str | None, days_clean: int | None, target: in
     return f"{name}day {days_clean} clean — keep going, you've got this. 💪"
 
 
-async def _build_message(settings: Settings, days_clean: int | None, context: ReminderContext) -> str:
+async def _build_message(
+    settings: Settings, days_clean: int | None, context: ReminderContext, occasion: str
+) -> str:
     """A fresh, human-written line from the AI each time, personalized
     with whatever profile/goal context is available — falls back to a
     static message if the AI isn't configured or fails."""
@@ -72,16 +79,19 @@ async def _build_message(settings: Settings, days_clean: int | None, context: Re
                 target=context.days_clean_target,
                 quit_reasons=quit_reason_labels,
                 goals=context.goals,
+                occasion=occasion,
             )
         except ReminderMessageUnavailableError as exc:
             logger.warning("Reminder AI generation failed, using static message: %s", exc)
 
-    return _static_message(context.display_name, days_clean, context.days_clean_target)
+    return _static_message(context.display_name, days_clean, context.days_clean_target, occasion)
 
 
-async def send_daily_reminder(settings: Settings) -> None:
+async def send_daily_reminder(settings: Settings, occasion: str = "general") -> None:
     if not (settings.telegram_bot_token and settings.telegram_chat_id):
         raise ReminderNotConfiguredError("Telegram/reminder settings are not fully configured")
+    if occasion not in ("general", "morning"):
+        occasion = "general"
 
     context = ReminderContext(display_name=None, quit_date=None, days_clean_target=None)
     if settings.supabase_service_role_key and settings.reminder_user_id:
@@ -100,8 +110,8 @@ async def send_daily_reminder(settings: Settings) -> None:
     if context.quit_date is not None:
         days_clean = (date.today() - date.fromisoformat(context.quit_date)).days
 
-    body = await _build_message(settings, days_clean, context)
-    logger.info("Sending daily Telegram reminder: %r", body)
+    body = await _build_message(settings, days_clean, context, occasion)
+    logger.info("Sending %s Telegram reminder: %r", occasion, body)
     await send_telegram_message(
         bot_token=settings.telegram_bot_token,
         chat_id=settings.telegram_chat_id,

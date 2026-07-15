@@ -11,12 +11,17 @@ router = APIRouter(prefix="/reminders", tags=["reminders"])
 
 @router.post("/daily")
 async def trigger_daily_reminder(
+    occasion: str = "general",
     x_reminder_secret: str | None = Header(default=None),
 ) -> dict[str, str]:
-    """Triggered by an external scheduler (this repo's daily-reminder
-    GitHub Actions workflow), not by the app itself — there's no user
-    session at send time, so this is gated by a shared secret instead of
-    the usual Supabase JWT auth.
+    """Triggered by an external scheduler — either the daily-reminder
+    GitHub Actions workflow (manual only) or a personal automation like
+    an iOS Shortcut. There's no user session at send time, so this is
+    gated by a shared secret instead of the usual Supabase JWT auth.
+
+    `occasion=morning` (e.g. from a "when my alarm stops" Shortcut) makes
+    the message a wake-up send-off with a concrete focus for the day,
+    instead of a plain check-in.
     """
     settings = get_settings()
     if not settings.reminder_secret or not secrets.compare_digest(
@@ -25,7 +30,7 @@ async def trigger_daily_reminder(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid reminder secret")
 
     try:
-        await send_daily_reminder(settings)
+        await send_daily_reminder(settings, occasion=occasion)
     except ReminderNotConfiguredError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
@@ -33,7 +38,7 @@ async def trigger_daily_reminder(
 
 
 @router.post("/test")
-async def trigger_test_reminder(user_id: CurrentUserId) -> dict[str, str]:
+async def trigger_test_reminder(user_id: CurrentUserId, occasion: str = "general") -> dict[str, str]:
     """Manual "send it now" button in the app, so the reminder mechanism
     can be tested without waiting for the daily cron. Reuses normal
     Supabase auth (unlike /daily, which has no user session) but is still
@@ -45,7 +50,7 @@ async def trigger_test_reminder(user_id: CurrentUserId) -> dict[str, str]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this action")
 
     try:
-        await send_daily_reminder(settings)
+        await send_daily_reminder(settings, occasion=occasion)
     except ReminderNotConfiguredError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
