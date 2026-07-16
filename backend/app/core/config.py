@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # client to report a local hour, unlike the suggestion endpoint).
     reminder_timezone: str = "UTC"
 
+    # Boo Conversations — see app/api/v1/telegram_webhook.py. Telegram's
+    # `secret_token` mechanism (set once via setWebhook) lets the webhook
+    # verify a request genuinely came from Telegram, not just anyone who
+    # finds the URL.
+    telegram_webhook_secret: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:

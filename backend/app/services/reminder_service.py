@@ -1,13 +1,13 @@
 import logging
-from datetime import date, datetime
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from datetime import date
 
 from app.core.config import Settings
+from app.core.time_of_day import day_part
 from app.integrations.azure_openai_reminder_generator import (
     AzureOpenAIReminderGenerator,
     ReminderMessageUnavailableError,
 )
-from app.integrations.supabase_admin_client import ProfileFetchError, ReminderContext, get_reminder_context
+from app.integrations.supabase_admin_client import ReminderContext, SupabaseAdminError, get_reminder_context
 from app.integrations.telegram_bot import send_telegram_message
 
 logger = logging.getLogger("app.reminders")
@@ -27,21 +27,6 @@ _QUIT_REASON_LABELS = {
 
 class ReminderNotConfiguredError(Exception):
     pass
-
-
-def _day_part(timezone_name: str) -> str:
-    try:
-        hour = datetime.now(ZoneInfo(timezone_name)).hour
-    except ZoneInfoNotFoundError:
-        logger.warning("Unknown REMINDER_TIMEZONE %r, defaulting to UTC", timezone_name)
-        hour = datetime.now(ZoneInfo("UTC")).hour
-    if 5 <= hour < 12:
-        return "morning"
-    if 12 <= hour < 17:
-        return "afternoon"
-    if 17 <= hour < 22:
-        return "evening"
-    return "night"
 
 
 def _static_message(
@@ -74,7 +59,7 @@ async def _build_message(
             quit_reason_labels = [_QUIT_REASON_LABELS.get(reason, reason) for reason in context.quit_reasons]
             return await generator.generate(
                 display_name=context.display_name,
-                day_part=_day_part(settings.reminder_timezone),
+                day_part=day_part(settings.reminder_timezone),
                 days_clean=days_clean,
                 target=context.days_clean_target,
                 quit_reasons=quit_reason_labels,
@@ -101,7 +86,7 @@ async def send_daily_reminder(settings: Settings, occasion: str = "general") -> 
                 service_role_key=settings.supabase_service_role_key,
                 user_id=settings.reminder_user_id,
             )
-        except ProfileFetchError as exc:
+        except SupabaseAdminError as exc:
             # A failed profile lookup shouldn't block the reminder itself —
             # fall back to the generic message instead.
             logger.warning("Failed to fetch reminder context, using generic message: %s", exc)
