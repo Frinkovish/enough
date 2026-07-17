@@ -59,6 +59,14 @@ class BooChatUnavailableError(Exception):
     pass
 
 
+class BooChatContentFilteredError(BooChatUnavailableError):
+    """Azure's platform-level content filter rejected the prompt before
+    the model ever saw it — not a transient failure, so callers should
+    ask the user to rephrase rather than imply something's broken."""
+
+    pass
+
+
 def _format_context(
     *,
     display_name: str | None,
@@ -161,6 +169,14 @@ class AzureOpenAIBooChat:
                     headers={"api-key": self._api_key, "Content-Type": "application/json"},
                     json=body,
                 )
+                if response.status_code == 400:
+                    error_code = None
+                    try:
+                        error_code = response.json().get("error", {}).get("code")
+                    except ValueError:
+                        pass
+                    if error_code == "content_filter":
+                        raise BooChatContentFilteredError("Prompt blocked by Azure content filter")
                 response.raise_for_status()
                 text = extract_output_text(response.json()).strip()
         except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:

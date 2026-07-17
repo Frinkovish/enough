@@ -3,7 +3,11 @@ from datetime import date
 
 from app.core.config import Settings
 from app.core.time_of_day import day_part
-from app.integrations.azure_openai_boo_chat import AzureOpenAIBooChat, BooChatUnavailableError
+from app.integrations.azure_openai_boo_chat import (
+    AzureOpenAIBooChat,
+    BooChatContentFilteredError,
+    BooChatUnavailableError,
+)
 from app.integrations.supabase_admin_client import (
     SupabaseAdminError,
     get_conversation_history,
@@ -94,6 +98,11 @@ async def reply_to_message(settings: Settings, message: str) -> str:
             history=history,
             message=message,
         )
+    except BooChatContentFilteredError:
+        # Azure's own content filter rejected the prompt before the model
+        # saw it — this isn't transient, so don't tell them to "try again".
+        logger.warning("Boo chat message blocked by Azure content filter")
+        reply = "That one got blocked by a content filter on my end before I even saw it — try wording it differently?"
     except BooChatUnavailableError as exc:
         logger.warning("Boo chat AI call failed: %s", exc)
         reply = "Sorry, I'm having trouble thinking right now — try again in a moment?"
